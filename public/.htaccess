@@ -1,4 +1,6 @@
 <IfModule mod_rewrite.c>
+    Header set X-Robots-Tag "noindex, nofollow"
+    
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
     </IfModule>
