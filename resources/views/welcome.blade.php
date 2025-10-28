@@ -118,7 +118,7 @@
                         </li>
                     </ul>
                 </div>
-                <div class="bg-white shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d]  relative lg:-ml-px -mb-px lg:mb-0 rounded-t-lg lg:rounded-t-none lg:rounded-r-lg aspect-[335/376] lg:aspect-auto w-full lg:w-[438px] shrink-0 overflow-hidden">
+                <div class="bg-white shadow-[inset_0px_0px_0px_1px_rgba(26,26,0,0.16)] dark:shadow-[inset_0px_0px_0px_1px_#fffaed2d] relative lg:-ml-px -mb-px lg:mb-0 rounded-t-lg lg:rounded-t-none lg:rounded-r-lg aspect-[335/376] lg:aspect-auto w-full lg:w-[438px] shrink-0 overflow-hidden">
                     <img src="https://hsiassetstorage.sfo2.digitaloceanspaces.com/assets/images/blog/_699x699_fit_center-center_100_none/835277/HSI-platform-wheel-2025-05-10.webp" alt="HSI Marketing Hub" class="w-full h-full object-cover">
                 </div>
             </main>
