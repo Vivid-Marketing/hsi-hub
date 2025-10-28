@@ -11,10 +11,21 @@ echo "🚀 Starting minimal post-deploy tasks..."
 chmod -R 755 storage bootstrap/cache
 chmod 644 artisan
 
+# Check Node.js installation
+if ! command -v node &> /dev/null; then
+    echo "❌ Node.js is not installed. Please install Node.js 18+ on your server."
+    exit 1
+fi
+
+echo "✅ Node.js $(node --version) is installed"
+
 # Install dependencies
 composer install --no-dev --optimize-autoloader --no-interaction
 npm ci --production=false
 npm run build
+
+# Install Puppeteer browser dependencies
+npx puppeteer browsers install chrome 2>/dev/null || true
 
 # Laravel optimization
 php artisan config:cache

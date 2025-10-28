@@ -47,10 +47,29 @@ chmod 644 artisan
 print_status "Installing Composer dependencies..."
 composer install --no-dev --optimize-autoloader --no-interaction
 
+# Check Node.js version
+print_status "Checking Node.js installation..."
+if ! command -v node &> /dev/null; then
+    print_error "Node.js is not installed. Please install Node.js 18+ on your server."
+    exit 1
+fi
+
+NODE_VERSION=$(node --version | cut -d'v' -f2 | cut -d'.' -f1)
+if [ "$NODE_VERSION" -lt 18 ]; then
+    print_error "Node.js version $NODE_VERSION is too old. Please install Node.js 18+ on your server."
+    exit 1
+fi
+
+print_success "Node.js $(node --version) is installed"
+
 # Install/Update NPM dependencies and build assets
 print_status "Installing NPM dependencies and building assets..."
 npm ci --production=false
 npm run build
+
+# Install Puppeteer dependencies for production
+print_status "Installing Puppeteer browser dependencies..."
+npx puppeteer browsers install chrome --path=/usr/local/lib/node_modules/puppeteer/.local-chromium 2>/dev/null || true
 
 # Clear and cache Laravel configurations
 print_status "Optimizing Laravel for production..."
