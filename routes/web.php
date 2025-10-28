@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CoursesController;
 use App\Http\Controllers\PdfToolsController;
 use App\Http\Controllers\Mp3ToolsController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -31,6 +32,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // MP3 Tools routes
     Route::get('/mp3-tools', [Mp3ToolsController::class, 'index'])->name('mp3-tools.index');
     Route::post('/mp3-tools/extract', [Mp3ToolsController::class, 'extractMp3Url'])->name('mp3-tools.extract');
+    
+    // User Management routes
+    Route::resource('users', UserController::class);
 });
 
 require __DIR__.'/auth.php';

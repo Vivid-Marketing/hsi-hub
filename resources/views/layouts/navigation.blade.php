@@ -27,6 +27,12 @@
                         {{ __('PDF Tools') }}
                     </x-nav-link>
                     @endcan
+                    
+                    @can('manage-users')
+                    <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
+                        {{ __('User Management') }}
+                    </x-nav-link>
+                    @endcan
                 </div>
             </div>
 
@@ -92,6 +98,12 @@
             @can('view-pdf-tools')
             <x-responsive-nav-link :href="route('pdf-tools.index')" :active="request()->routeIs('pdf-tools.*')">
                 {{ __('PDF Tools') }}
+            </x-responsive-nav-link>
+            @endcan
+            
+            @can('manage-users')
+            <x-responsive-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
+                {{ __('User Management') }}
             </x-responsive-nav-link>
             @endcan
         </div>
