@@ -11,7 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Add middleware to all web routes to prevent indexing
+        $middleware->web(append: [
+            \App\Http\Middleware\PreventIndexing::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
