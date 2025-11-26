@@ -179,21 +179,52 @@ for dir in storage/logs storage/framework bootstrap/cache vendor; do
     fi
 done
 
-# Set proper permissions
+# Set proper permissions (non-fatal - some files may be owned by other users)
+# Production ownership: master_mmpdmpxcnt:www-data
+# Storage directories need to be writable by www-data group
 print_status "Setting file permissions..."
-chmod -R 755 storage bootstrap/cache
-chmod -R 775 storage/logs storage/framework
-chmod 644 artisan
+print_warning "Note: Some permission changes may fail if files are owned by www-data user. This is normal."
 
-# Ensure vendor directory is writable
-chmod -R 775 vendor 2>/dev/null || true
+# Temporarily disable exit on error for permission setting (we expect some failures)
+set +e
+
+# Set permissions on key directories
+# Storage needs 775 so www-data group can write (files created by web server)
+chmod 775 storage 2>/dev/null
+chmod 755 bootstrap/cache 2>/dev/null
+chmod 775 storage/logs 2>/dev/null
+chmod 775 storage/framework 2>/dev/null
+chmod 775 storage/framework/cache 2>/dev/null
+chmod 775 storage/framework/sessions 2>/dev/null
+chmod 775 storage/framework/views 2>/dev/null
+chmod 644 artisan 2>/dev/null
+chmod 775 vendor 2>/dev/null
+
+# Try to set permissions on subdirectories we created, but don't fail if we can't
+print_status "Setting permissions on subdirectories (non-critical)..."
+find storage/logs -type d -exec chmod 775 {} \; 2>/dev/null >/dev/null
+find storage/framework -type d -exec chmod 775 {} \; 2>/dev/null >/dev/null
+find bootstrap/cache -type d -exec chmod 755 {} \; 2>/dev/null >/dev/null
+
+# Re-enable exit on error
+set -e
+
+# Optional: Set ownership (uncomment if you have sudo access and want to ensure ownership)
+# Production setup: owner=master_mmpdmpxcnt, group=www-data
+# Uncomment the following lines if you need to fix ownership:
+# print_status "Setting file ownership to master_mmpdmpxcnt:www-data..."
+# sudo chown -R master_mmpdmpxcnt:www-data storage bootstrap/cache vendor 2>/dev/null || {
+#     print_warning "Could not set ownership (may require sudo or different user)"
+# }
+
+print_success "Permission setting completed (some errors are expected and harmless)"
 
 # Set proper ownership (adjust user/group as needed for your server)
-# Uncomment and modify these lines based on your server setup:
-# print_status "Setting file ownership..."
-# chown -R www-data:www-data storage bootstrap/cache
-# chown -R www-data:www-data public/build
-# chown -R www-data:www-data vendor
+# Production setup: owner=master_mmpdmpxcnt, group=www-data
+# Uncomment and modify these lines if you need to fix ownership (may require sudo):
+# print_status "Setting file ownership to master_mmpdmpxcnt:www-data..."
+# sudo chown -R master_mmpdmpxcnt:www-data storage bootstrap/cache vendor 2>/dev/null || true
+# sudo chown -R master_mmpdmpxcnt:www-data public/build 2>/dev/null || true
 
 # Check available disk space before Composer install
 print_status "Checking available disk space..."
@@ -373,10 +404,11 @@ $COMPOSER_CMD dump-autoload --optimize || {
 }
 
 # Set proper ownership (adjust user/group as needed for your server)
-# Uncomment and modify these lines based on your server setup:
-# print_status "Setting file ownership..."
-# chown -R www-data:www-data storage bootstrap/cache
-# chown -R www-data:www-data public/build
+# Production setup: owner=master_mmpdmpxcnt, group=www-data
+# Uncomment and modify these lines if you need to fix ownership (may require sudo):
+# print_status "Setting file ownership to master_mmpdmpxcnt:www-data..."
+# sudo chown -R master_mmpdmpxcnt:www-data storage bootstrap/cache 2>/dev/null || true
+# sudo chown -R master_mmpdmpxcnt:www-data public/build 2>/dev/null || true
 
 # Verify installation
 print_status "Verifying installation..."
