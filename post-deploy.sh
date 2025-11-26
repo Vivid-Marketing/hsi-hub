@@ -344,9 +344,59 @@ fi
 # Install Puppeteer dependencies for production (if package.json exists and puppeteer is installed)
 if [ -f "package.json" ] && grep -q "puppeteer" package.json 2>/dev/null; then
     print_status "Installing Puppeteer browser dependencies..."
-    npx puppeteer browsers install chrome --path=/usr/local/lib/node_modules/puppeteer/.local-chromium 2>/dev/null || \
-    npx puppeteer browsers install chrome 2>/dev/null || true
+    # Try to install to default location (node_modules/puppeteer/.local-chromium)
+    # This is better than /usr/local/lib as it's within the project directory
+    npx puppeteer browsers install chrome 2>/dev/null || {
+        print_warning "Puppeteer browser installation failed, but continuing..."
+    }
+    
+    # Verify installation
+    if [ -d "node_modules/puppeteer/.local-chromium" ]; then
+        print_success "Puppeteer browser installed successfully"
+    else
+        print_warning "Puppeteer browser directory not found (may install on first use)"
+    fi
 fi
+
+# Set permissions for Node.js scripts and node_modules
+print_status "Setting permissions for Node.js scripts and dependencies..."
+set +e  # Temporarily disable exit on error for permission setting
+
+# Set permissions on extract-mp3.js if it exists
+if [ -f "extract-mp3.js" ]; then
+    chmod 644 extract-mp3.js 2>/dev/null || true
+    print_success "Set permissions on extract-mp3.js"
+else
+    print_warning "extract-mp3.js not found (may be normal if not using MP3 tools)"
+fi
+
+# Set permissions on node_modules directory (readable and executable for web server)
+if [ -d "node_modules" ]; then
+    # Make node_modules readable
+    chmod -R 755 node_modules 2>/dev/null || true
+    
+    # Ensure all .js files in node_modules are readable
+    find node_modules -type f -name "*.js" -exec chmod 644 {} \; 2>/dev/null >/dev/null || true
+    
+    # Ensure all executables in node_modules are executable
+    find node_modules/.bin -type f -exec chmod 755 {} \; 2>/dev/null >/dev/null || true
+    
+    # Set permissions on puppeteer browser binaries if they exist
+    if [ -d "node_modules/puppeteer/.local-chromium" ]; then
+        chmod -R 755 node_modules/puppeteer/.local-chromium 2>/dev/null || true
+        # Make chromium executable (find with proper grouping)
+        find node_modules/puppeteer/.local-chromium -type f \( -name "chrome" -o -name "chromium" -o -name "chrome.exe" \) | while read -r chrome_bin; do
+            chmod 755 "$chrome_bin" 2>/dev/null || true
+        done
+        print_success "Set permissions on Puppeteer browser binaries"
+    fi
+    
+    print_success "Set permissions on node_modules directory"
+else
+    print_warning "node_modules directory not found"
+fi
+
+set -e  # Re-enable exit on error
 
 # Clear and cache Laravel configurations
 print_status "Optimizing Laravel for production..."
@@ -417,6 +467,34 @@ if php artisan --version > /dev/null 2>&1; then
 else
     print_error "Laravel application verification failed"
     exit 1
+fi
+
+# Verify MP3 extraction tool setup (if extract-mp3.js exists)
+if [ -f "extract-mp3.js" ]; then
+    print_status "Verifying MP3 extraction tool setup..."
+    
+    # Check if file is readable
+    if [ -r "extract-mp3.js" ]; then
+        print_success "extract-mp3.js is readable"
+    else
+        print_warning "extract-mp3.js may not be readable by web server"
+    fi
+    
+    # Check if Node.js can execute the script (dry run)
+    if [ -n "$NODE_CMD" ]; then
+        if $NODE_CMD --check extract-mp3.js > /dev/null 2>&1; then
+            print_success "extract-mp3.js syntax is valid"
+        else
+            print_warning "extract-mp3.js syntax check failed (may still work)"
+        fi
+    fi
+    
+    # Check if puppeteer is available
+    if [ -d "node_modules/puppeteer" ]; then
+        print_success "Puppeteer is installed"
+    else
+        print_warning "Puppeteer not found in node_modules (may cause MP3 extraction to fail)"
+    fi
 fi
 
 # Optional: Run tests in production (uncomment if needed)
