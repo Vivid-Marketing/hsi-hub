@@ -11,6 +11,10 @@ echo "🚀 Starting minimal post-deploy tasks..."
 chmod -R 755 storage bootstrap/cache
 chmod 644 artisan
 
+# Create bootstrap/cache directory if it doesn't exist
+mkdir -p bootstrap/cache
+chmod -R 775 bootstrap/cache
+
 # Check Node.js installation
 if ! command -v node &> /dev/null; then
     echo "❌ Node.js is not installed. Please install Node.js 18+ on your server."
