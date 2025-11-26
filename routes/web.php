@@ -32,6 +32,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // MP3 Tools routes
     Route::get('/mp3-tools', [Mp3ToolsController::class, 'index'])->name('mp3-tools.index');
     Route::post('/mp3-tools/extract', [Mp3ToolsController::class, 'extractMp3Url'])->name('mp3-tools.extract');
+    Route::get('/mp3-tools/diagnose', [Mp3ToolsController::class, 'diagnose'])->name('mp3-tools.diagnose');
     
     // User Management routes
     Route::resource('users', UserController::class);
