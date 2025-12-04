@@ -65,3 +65,4 @@ php artisan queue:restart
 
 echo "✅ Post-deploy tasks completed successfully!"
 echo "🎉 Deployment finished at $(date)"
+
