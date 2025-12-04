@@ -23,100 +23,138 @@ class Mp3ToolsController extends Controller
      */
     public function diagnose(): JsonResponse
     {
-        $diagnostics = [
-            'shell_exec_available' => function_exists('shell_exec'),
-            'script_exists' => false,
-            'script_path' => null,
-            'script_readable' => false,
-            'node_found' => false,
-            'node_path' => null,
-            'node_version' => null,
-            'puppeteer_installed' => false,
-            'puppeteer_readable' => false,
-            'browser_binaries_found' => false,
-            'node_modules_readable' => false,
-            'test_execution' => null,
-            'errors' => [],
-            'warnings' => [],
-        ];
+        try {
+            $diagnostics = [
+                'shell_exec_available' => function_exists('shell_exec'),
+                'script_exists' => false,
+                'script_path' => null,
+                'script_readable' => false,
+                'node_found' => false,
+                'node_path' => null,
+                'node_version' => null,
+                'puppeteer_installed' => false,
+                'puppeteer_readable' => false,
+                'browser_binaries_found' => false,
+                'node_modules_readable' => false,
+                'test_execution' => null,
+                'errors' => [],
+                'warnings' => [],
+            ];
 
-        $scriptPath = base_path('extract-mp3.js');
-        $diagnostics['script_path'] = $scriptPath;
-        
-        if (file_exists($scriptPath)) {
-            $diagnostics['script_exists'] = true;
-            $diagnostics['script_readable'] = is_readable($scriptPath);
-        } else {
-            $diagnostics['errors'][] = 'extract-mp3.js not found';
-        }
-
-        $nodePath = $this->findNodeExecutable();
-        if ($nodePath) {
-            $diagnostics['node_found'] = true;
-            $diagnostics['node_path'] = $nodePath;
-            $version = shell_exec("{$nodePath} --version 2>&1");
-            if ($version) {
-                $diagnostics['node_version'] = trim($version);
-            }
-        } else {
-            $diagnostics['errors'][] = 'Node.js not found';
-        }
-
-        $puppeteerPath = base_path('node_modules/puppeteer');
-        if (is_dir($puppeteerPath)) {
-            $diagnostics['puppeteer_installed'] = true;
-            $diagnostics['puppeteer_readable'] = is_readable($puppeteerPath);
-            
-            $browserPath = base_path('node_modules/puppeteer/.local-chromium');
-            if (is_dir($browserPath)) {
-                $diagnostics['browser_binaries_found'] = true;
-            } else {
-                $diagnostics['warnings'][] = 'Browser binaries not installed (may install on first use)';
-            }
-        } else {
-            $diagnostics['errors'][] = 'Puppeteer not installed';
-        }
-
-        $nodeModulesPath = base_path('node_modules');
-        if (is_dir($nodeModulesPath)) {
-            $diagnostics['node_modules_readable'] = is_readable($nodeModulesPath);
-        } else {
-            $diagnostics['errors'][] = 'node_modules directory not found';
-        }
-
-        // Test execution if possible
-        if ($diagnostics['node_found'] && $diagnostics['script_exists']) {
             try {
-                $testUrl = 'https://example.com';
-                $escapedUrl = escapeshellarg($testUrl);
-                $escapedScriptPath = escapeshellarg($scriptPath);
-                $command = "{$nodePath} {$escapedScriptPath} {$escapedUrl} 2>&1";
+                $scriptPath = base_path('extract-mp3.js');
+                $diagnostics['script_path'] = $scriptPath;
                 
-                $output = shell_exec($command);
-                if ($output !== null) {
-                    $diagnostics['test_execution'] = [
-                        'success' => true,
-                        'output_length' => strlen($output),
-                        'is_json' => json_decode($output, true) !== null,
-                        'output_preview' => substr($output, 0, 200),
-                    ];
+                if (file_exists($scriptPath)) {
+                    $diagnostics['script_exists'] = true;
+                    $diagnostics['script_readable'] = is_readable($scriptPath);
                 } else {
-                    $diagnostics['test_execution'] = [
-                        'success' => false,
-                        'error' => 'Command returned null',
-                    ];
-                    $diagnostics['errors'][] = 'Test execution failed';
+                    $diagnostics['errors'][] = 'extract-mp3.js not found at: ' . $scriptPath;
                 }
             } catch (\Exception $e) {
-                $diagnostics['test_execution'] = [
-                    'success' => false,
-                    'error' => $e->getMessage(),
-                ];
-                $diagnostics['errors'][] = 'Test execution exception: ' . $e->getMessage();
+                $diagnostics['errors'][] = 'Error checking script path: ' . $e->getMessage();
             }
-        }
 
-        return response()->json($diagnostics);
+            try {
+                $nodePath = $this->findNodeExecutable();
+                if ($nodePath) {
+                    $diagnostics['node_found'] = true;
+                    $diagnostics['node_path'] = $nodePath;
+                    
+                    if (function_exists('shell_exec')) {
+                        $version = @shell_exec("{$nodePath} --version 2>&1");
+                        if ($version) {
+                            $diagnostics['node_version'] = trim($version);
+                        }
+                    }
+                } else {
+                    $diagnostics['errors'][] = 'Node.js not found';
+                }
+            } catch (\Exception $e) {
+                $diagnostics['errors'][] = 'Error finding Node.js: ' . $e->getMessage();
+            }
+
+            try {
+                $puppeteerPath = base_path('node_modules/puppeteer');
+                if (is_dir($puppeteerPath)) {
+                    $diagnostics['puppeteer_installed'] = true;
+                    $diagnostics['puppeteer_readable'] = is_readable($puppeteerPath);
+                    
+                    $browserPath = base_path('node_modules/puppeteer/.local-chromium');
+                    if (is_dir($browserPath)) {
+                        $diagnostics['browser_binaries_found'] = true;
+                    } else {
+                        $diagnostics['warnings'][] = 'Browser binaries not installed (may install on first use)';
+                    }
+                } else {
+                    $diagnostics['errors'][] = 'Puppeteer not installed at: ' . $puppeteerPath;
+                }
+            } catch (\Exception $e) {
+                $diagnostics['errors'][] = 'Error checking Puppeteer: ' . $e->getMessage();
+            }
+
+            try {
+                $nodeModulesPath = base_path('node_modules');
+                if (is_dir($nodeModulesPath)) {
+                    $diagnostics['node_modules_readable'] = is_readable($nodeModulesPath);
+                } else {
+                    $diagnostics['errors'][] = 'node_modules directory not found at: ' . $nodeModulesPath;
+                }
+            } catch (\Exception $e) {
+                $diagnostics['errors'][] = 'Error checking node_modules: ' . $e->getMessage();
+            }
+
+            // Test execution if possible
+            if ($diagnostics['node_found'] && $diagnostics['script_exists'] && function_exists('shell_exec')) {
+                try {
+                    $testUrl = 'https://example.com';
+                    $escapedUrl = escapeshellarg($testUrl);
+                    $escapedScriptPath = escapeshellarg($scriptPath);
+                    $command = "{$nodePath} {$escapedScriptPath} {$escapedUrl} 2>&1";
+                    
+                    $output = @shell_exec($command);
+                    if ($output !== null) {
+                        $diagnostics['test_execution'] = [
+                            'success' => true,
+                            'output_length' => strlen($output),
+                            'is_json' => json_decode($output, true) !== null,
+                            'output_preview' => substr($output, 0, 200),
+                        ];
+                    } else {
+                        $diagnostics['test_execution'] = [
+                            'success' => false,
+                            'error' => 'Command returned null',
+                        ];
+                        $diagnostics['errors'][] = 'Test execution failed - command returned null';
+                    }
+                } catch (\Exception $e) {
+                    $diagnostics['test_execution'] = [
+                        'success' => false,
+                        'error' => $e->getMessage(),
+                    ];
+                    $diagnostics['errors'][] = 'Test execution exception: ' . $e->getMessage();
+                }
+            }
+
+            return response()->json($diagnostics);
+
+        } catch (\Exception $e) {
+            Log::error('Exception in diagnose method', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Diagnostic error: ' . $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'errors' => ['Exception occurred: ' . $e->getMessage()],
+                'warnings' => []
+            ], 500);
+        }
     }
 
     /**
