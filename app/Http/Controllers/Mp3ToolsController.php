@@ -120,7 +120,8 @@ class Mp3ToolsController extends Controller
     }
 
     /**
-     * Extract MP3 URL from Zencastr URL using PHP HTML parser.
+     * Extract MP3 URL from Zencastr URL.
+     * Tries PHP HTML parser first (faster), falls back to Node.js/Puppeteer if needed.
      */
     public function extractMp3Url(Request $request): JsonResponse
     {
@@ -144,204 +145,45 @@ class Mp3ToolsController extends Controller
         try {
             Log::info('Extracting MP3 URL from: ' . $url);
 
-            // Check if PHPHtmlParser is available
-            if (!class_exists(\PHPHtmlParser\Dom::class)) {
-                Log::error('PHPHtmlParser\Dom class not found');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'HTML parser library not available. Please check server configuration.'
-                ], 500);
-            }
-
-            // Create DOM parser
-            $dom = new Dom();
+            // Try PHP HTML parser first (faster, no JavaScript execution needed if SSR works)
+            $phpResult = $this->extractWithPhpParser($url);
             
-            try {
-                // Load the URL with basic options
-                // PHPHtmlParser v2 uses a simpler API
-                $dom->loadFromUrl($url);
-            } catch (\Exception $loadException) {
-                Log::error('Failed to load URL in PHPHtmlParser', [
-                    'message' => $loadException->getMessage(),
-                    'trace' => $loadException->getTraceAsString(),
-                    'url' => $url
+            if ($phpResult['success']) {
+                Log::info('Successfully extracted MP3 URL using PHP parser: ' . $phpResult['audioUrl']);
+                return response()->json([
+                    'success' => true,
+                    'audioUrl' => $phpResult['audioUrl'],
+                    'message' => 'MP3 URL extracted successfully!'
                 ]);
-                
-                // Try using Guzzle to fetch and then parse
-                try {
-                    $client = new Client();
-                    $response = $client->get($url, [
-                        'headers' => [
-                            'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                            'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                        ],
-                        'timeout' => 30,
-                    ]);
-                    $html = $response->getBody()->getContents();
-                    $dom->loadStr($html);
-                } catch (\Exception $guzzleException) {
-                    Log::error('Failed to load URL using Guzzle fallback', [
-                        'message' => $guzzleException->getMessage(),
-                        'url' => $url
-                    ]);
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Failed to load the page. Please check the URL and try again.'
-                    ], 500);
-                }
             }
 
-            // Find the __NEXT_DATA__ script tag by ID
-            $nextDataScript = $dom->find('#__NEXT_DATA__');
+            // If PHP parser failed, log the reason and try Puppeteer fallback
+            Log::warning('PHP parser extraction failed, trying Puppeteer fallback', [
+                'php_error' => $phpResult['message'] ?? 'Unknown error'
+            ]);
+
+            // Fallback to Node.js/Puppeteer script
+            $puppeteerResult = $this->extractWithPuppeteer($url);
             
-            // If not found by ID, try finding all script tags
-            if (empty($nextDataScript) || count($nextDataScript) === 0) {
-                $allScripts = $dom->find('script');
-                $nextDataScript = [];
-                foreach ($allScripts as $script) {
-                    try {
-                        $id = $script->getAttribute('id');
-                        if ($id === '__NEXT_DATA__') {
-                            $nextDataScript[] = $script;
-                            break;
-                        }
-                    } catch (\Exception $e) {
-                        // Continue searching if attribute access fails
-                        continue;
-                    }
-                }
-            }
-            
-            if (empty($nextDataScript) || count($nextDataScript) === 0) {
-                Log::error('__NEXT_DATA__ script tag not found on page', ['url' => $url]);
+            if ($puppeteerResult['success']) {
+                Log::info('Successfully extracted MP3 URL using Puppeteer: ' . $puppeteerResult['audioUrl']);
                 return response()->json([
-                    'success' => false,
-                    'message' => 'Could not find episode data on the page. The page may not have loaded correctly or the URL may be invalid.'
-                ], 500);
-            }
-
-            // Get the first matching script tag
-            $script = $nextDataScript[0];
-            
-            // Get the inner HTML/text content of the script tag
-            try {
-                $jsonContent = $script->innerHtml;
-            } catch (\Exception $e) {
-                try {
-                    $jsonContent = $script->text;
-                } catch (\Exception $e2) {
-                    Log::error('Failed to get script content', [
-                        'message1' => $e->getMessage(),
-                        'message2' => $e2->getMessage()
-                    ]);
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Failed to extract script content from the page.'
-                    ], 500);
-                }
-            }
-            
-            // If still empty, try alternative methods
-            if (empty(trim($jsonContent))) {
-                try {
-                    $jsonContent = $script->text;
-                } catch (\Exception $e) {
-                    Log::error('Script content is empty and text extraction failed', [
-                        'message' => $e->getMessage()
-                    ]);
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Episode data script tag is empty.'
-                    ], 500);
-                }
-            }
-
-            if (empty(trim($jsonContent))) {
-                Log::error('__NEXT_DATA__ script tag is empty');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Episode data script tag is empty.'
-                ], 500);
-            }
-
-            // Parse the JSON data
-            $nextData = json_decode($jsonContent, true);
-
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                Log::error('Failed to parse __NEXT_DATA__ JSON', [
-                    'json_error' => json_last_error_msg(),
-                    'content_preview' => substr($jsonContent, 0, 200),
-                    'content_length' => strlen($jsonContent)
+                    'success' => true,
+                    'audioUrl' => $puppeteerResult['audioUrl'],
+                    'message' => 'MP3 URL extracted successfully!'
                 ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to parse episode data: ' . json_last_error_msg()
-                ], 500);
             }
 
-            // Extract the audio URL from the nested structure
-            // Check each level to provide better error messages
-            if (!isset($nextData['props'])) {
-                Log::error('props key not found in __NEXT_DATA__', [
-                    'available_keys' => array_keys($nextData ?? [])
-                ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid episode data structure: props not found.'
-                ], 500);
-            }
-
-            if (!isset($nextData['props']['pageProps'])) {
-                Log::error('pageProps key not found in __NEXT_DATA__');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid episode data structure: pageProps not found.'
-                ], 500);
-            }
-
-            if (!isset($nextData['props']['pageProps']['episode'])) {
-                Log::error('episode key not found in __NEXT_DATA__');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Invalid episode data structure: episode not found.'
-                ], 500);
-            }
-
-            if (!isset($nextData['props']['pageProps']['episode']['audioFile'])) {
-                Log::error('audioFile key not found in episode data', [
-                    'available_keys' => array_keys($nextData['props']['pageProps']['episode'] ?? [])
-                ]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'No audioFile found in the episode data. The episode may not have an audio file.'
-                ], 500);
-            }
-
-            if (!isset($nextData['props']['pageProps']['episode']['audioFile']['url'])) {
-                Log::error('url key not found in audioFile');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Audio file URL not found in the episode data.'
-                ], 500);
-            }
-
-            $audioUrl = $nextData['props']['pageProps']['episode']['audioFile']['url'];
-
-            if (empty($audioUrl)) {
-                Log::error('Audio URL is empty');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Audio file URL is empty.'
-                ], 500);
-            }
-
-            Log::info('Successfully extracted MP3 URL: ' . $audioUrl);
+            // Both methods failed
+            Log::error('Both PHP parser and Puppeteer extraction failed', [
+                'php_error' => $phpResult['message'] ?? 'Unknown error',
+                'puppeteer_error' => $puppeteerResult['message'] ?? 'Unknown error'
+            ]);
 
             return response()->json([
-                'success' => true,
-                'audioUrl' => $audioUrl,
-                'message' => 'MP3 URL extracted successfully!'
-            ]);
+                'success' => false,
+                'message' => $puppeteerResult['message'] ?? 'Failed to extract MP3 URL. Please check the URL and try again.'
+            ], 500);
 
         } catch (\Exception $e) {
             Log::error('Exception in extractMp3Url', [
@@ -352,11 +194,224 @@ class Mp3ToolsController extends Controller
                 'url' => $url ?? 'not set'
             ]);
             
-            // Return a user-friendly error message
             return response()->json([
                 'success' => false,
-                'message' => 'An error occurred while extracting the MP3 URL. Please check the Laravel logs for details.'
+                'message' => 'An error occurred while extracting the MP3 URL: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Extract MP3 URL using PHP HTML parser (paquettg/php-html-parser).
+     * This method tries to parse the HTML directly without JavaScript execution.
+     */
+    private function extractWithPhpParser(string $url): array
+    {
+        try {
+            // Check if PHPHtmlParser is available
+            if (!class_exists(\PHPHtmlParser\Dom::class)) {
+                return [
+                    'success' => false,
+                    'message' => 'PHP HTML parser library not available'
+                ];
+            }
+
+            // Fetch HTML using Guzzle
+            $client = new Client([
+                'timeout' => 30,
+                'headers' => [
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language' => 'en-US,en;q=0.5',
+                ],
+            ]);
+
+            $response = $client->get($url);
+            $html = $response->getBody()->getContents();
+
+            // Parse HTML with PHPHtmlParser
+            $dom = new Dom();
+            $dom->loadStr($html);
+
+            // Find the __NEXT_DATA__ script tag
+            $nextDataScript = $dom->find('#__NEXT_DATA__');
+            
+            if (empty($nextDataScript) || count($nextDataScript) === 0) {
+                // Try finding all script tags and look for __NEXT_DATA__
+                $allScripts = $dom->find('script');
+                foreach ($allScripts as $script) {
+                    try {
+                        $id = $script->getAttribute('id');
+                        if ($id === '__NEXT_DATA__') {
+                            $nextDataScript = [$script];
+                            break;
+                        }
+                    } catch (\Exception $e) {
+                        continue;
+                    }
+                }
+            }
+
+            if (empty($nextDataScript) || count($nextDataScript) === 0) {
+                return [
+                    'success' => false,
+                    'message' => '__NEXT_DATA__ script tag not found in HTML (may require JavaScript execution)'
+                ];
+            }
+
+            // Get script content
+            $script = $nextDataScript[0];
+            try {
+                $jsonContent = $script->innerHtml;
+            } catch (\Exception $e) {
+                $jsonContent = $script->text;
+            }
+
+            if (empty(trim($jsonContent))) {
+                return [
+                    'success' => false,
+                    'message' => '__NEXT_DATA__ script tag is empty'
+                ];
+            }
+
+            // Parse JSON
+            $nextData = json_decode($jsonContent, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return [
+                    'success' => false,
+                    'message' => 'Failed to parse __NEXT_DATA__ JSON: ' . json_last_error_msg()
+                ];
+            }
+
+            // Extract audio URL
+            if (!isset($nextData['props']['pageProps']['episode']['audioFile']['url'])) {
+                return [
+                    'success' => false,
+                    'message' => 'Audio file URL not found in episode data structure'
+                ];
+            }
+
+            $audioUrl = $nextData['props']['pageProps']['episode']['audioFile']['url'];
+
+            if (empty($audioUrl)) {
+                return [
+                    'success' => false,
+                    'message' => 'Audio file URL is empty'
+                ];
+            }
+
+            return [
+                'success' => true,
+                'audioUrl' => $audioUrl
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('PHP parser extraction failed', [
+                'message' => $e->getMessage(),
+                'url' => $url
+            ]);
+            return [
+                'success' => false,
+                'message' => 'PHP parser error: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Extract MP3 URL using Node.js/Puppeteer script (fallback method).
+     * This method executes JavaScript to render the page fully.
+     */
+    private function extractWithPuppeteer(string $url): array
+    {
+        try {
+            // Check if shell_exec is available
+            if (!function_exists('shell_exec')) {
+                return [
+                    'success' => false,
+                    'message' => 'shell_exec function is not available'
+                ];
+            }
+
+            // Find Node.js executable
+            $nodePath = $this->findNodeExecutable();
+            if (!$nodePath) {
+                return [
+                    'success' => false,
+                    'message' => 'Node.js is not installed or not found on the server'
+                ];
+            }
+
+            // Check if extract-mp3.js script exists
+            $scriptPath = base_path('extract-mp3.js');
+            if (!file_exists($scriptPath) || !is_readable($scriptPath)) {
+                return [
+                    'success' => false,
+                    'message' => 'extract-mp3.js script not found or not readable'
+                ];
+            }
+
+            // Execute the Node.js script
+            $escapedUrl = escapeshellarg($url);
+            $escapedScriptPath = escapeshellarg($scriptPath);
+            $command = "{$nodePath} {$escapedScriptPath} {$escapedUrl} 2>&1";
+            
+            Log::info('Executing Puppeteer script', [
+                'node_path' => $nodePath,
+                'url' => $url
+            ]);
+
+            $output = shell_exec($command);
+
+            if ($output === null) {
+                return [
+                    'success' => false,
+                    'message' => 'Script execution returned null'
+                ];
+            }
+
+            // Parse JSON output
+            $result = json_decode(trim($output), true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error('Failed to parse Puppeteer script output', [
+                    'json_error' => json_last_error_msg(),
+                    'output_preview' => substr($output, 0, 500)
+                ]);
+                return [
+                    'success' => false,
+                    'message' => 'Failed to parse script output: ' . json_last_error_msg()
+                ];
+            }
+
+            if (isset($result['success']) && !$result['success']) {
+                return [
+                    'success' => false,
+                    'message' => $result['message'] ?? 'Puppeteer extraction failed'
+                ];
+            }
+
+            if (!isset($result['audioUrl']) || empty($result['audioUrl'])) {
+                return [
+                    'success' => false,
+                    'message' => $result['message'] ?? 'No audio URL found in the episode'
+                ];
+            }
+
+            return [
+                'success' => true,
+                'audioUrl' => $result['audioUrl']
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Puppeteer extraction failed', [
+                'message' => $e->getMessage(),
+                'url' => $url
+            ]);
+            return [
+                'success' => false,
+                'message' => 'Puppeteer error: ' . $e->getMessage()
+            ];
         }
     }
 
