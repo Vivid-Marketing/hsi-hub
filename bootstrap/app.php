@@ -30,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'internal.signature' => \App\Http\Middleware\VerifyInternalRequestSignature::class,
             'training-assessment-pdf.cors' => \App\Http\Middleware\TrainingAssessmentPdfCors::class,
+            'cron.token' => \App\Http\Middleware\VerifyCronToken::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,

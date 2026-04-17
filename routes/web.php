@@ -10,6 +10,7 @@ use App\Http\Controllers\RichTextToolsController;
 use App\Http\Controllers\TrainingAssessmentPdfController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Internal\CourseCatalogPdfBatchesController;
+use App\Http\Controllers\Internal\CronScheduleController;
 use App\Http\Controllers\PdfTools\CourseCatalogPdfLogController;
 use App\Http\Controllers\PdfTools\TrainingAssessmentPdfLogController;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +26,11 @@ Route::post('/internal/course-catalog-pdf/batches', [CourseCatalogPdfBatchesCont
     ->middleware('internal.signature')
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
     ->name('internal.course-catalog-pdf.batches.store');
+
+// Internal endpoint to run Laravel scheduler via a single cron hit.
+Route::get('/internal/cron/schedule', [CronScheduleController::class, 'run'])
+    ->middleware('cron.token')
+    ->name('internal.cron.schedule');
 
 Route::get('/', function () {
     if (auth()->check()) {

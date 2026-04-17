@@ -1,6 +1,12 @@
 <?php
 
 return [
+    'token' => env('CRON_SCHEDULE_TOKEN'),
+];
+
+<?php
+
+return [
     /*
     |--------------------------------------------------------------------------
     | Cron token
