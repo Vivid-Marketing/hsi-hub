@@ -13,7 +13,7 @@ require __DIR__.'/../vendor/autoload.php';
 $app = require __DIR__.'/../bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
 
-$token = (string) env('CRON_TOKEN', '');
+$token = (string) config('cron.token', '');
 $provided = (string) ($_GET['token'] ?? '');
 
 if (PHP_SAPI !== 'cli') {
