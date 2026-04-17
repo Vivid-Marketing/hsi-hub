@@ -15,7 +15,9 @@ return [
     */
 
     'postmark' => [
-        'token' => env('POSTMARK_TOKEN'),
+        // Laravel's Postmark mail transport reads from services.postmark.token
+        // We standardize on POSTMARK_API_KEY across the app.
+        'token' => env('POSTMARK_API_KEY'),
     ],
 
     'resend' => [
