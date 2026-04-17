@@ -67,17 +67,21 @@ class TrainingAssessmentPdfController extends Controller
             $log->duration_ms = $durationMs;
             $log->save();
 
-            return response()->json(['pdfUrl' => $log->pdf_url]);
+            return response()->json([
+                'pdfUrl' => $log->pdf_url,
+                'logId' => $log->id,
+            ]);
         } catch (\Throwable $e) {
             $durationMs = (int) round((microtime(true) - $startedAt) * 1000);
 
             $log->status = 'failed';
-            $log->error_message = $e->getMessage();
+            $log->error_message = get_class($e).': '.$e->getMessage();
             $log->duration_ms = $durationMs;
             $log->save();
 
             return response()->json([
                 'error' => 'PDF generation failed',
+                'logId' => $log->id,
             ], 500);
         }
     }
