@@ -10,21 +10,22 @@ class TrainingAssessmentPdfRenderer
     public function buildHtml(TrainingAssessmentPdfType $type, string $title, string $reportHtml): string
     {
         $titleEscaped = e($title);
+        $assetsBaseUrl = $this->reportsAssetsBaseUrl();
 
         // Match legacy templates closely (including remote assets/CSS).
         $styles = match ($type) {
             TrainingAssessmentPdfType::Hrca => implode("\n", [
-                '<link rel="stylesheet" type="text/css" media="screen" href="https://apismd.hsi.com/reports/assets/styles-hrca.css" />',
-                '<link rel="stylesheet" type="text/css" media="screen" href="https://apismd.hsi.com/reports/assets/styles-hrca-appended.css" />',
+                '<link rel="stylesheet" type="text/css" media="screen" href="'.$assetsBaseUrl.'/styles-hrca.css" />',
+                '<link rel="stylesheet" type="text/css" media="screen" href="'.$assetsBaseUrl.'/styles-hrca-appended.css" />',
             ]),
-            default => '<link rel="stylesheet" type="text/css" media="screen" href="https://apismd.hsi.com/reports/assets/styles.css" />'
+            default => '<link rel="stylesheet" type="text/css" media="screen" href="'.$assetsBaseUrl.'/styles.css" />'
                 ."\n".$this->defaultInlineStyles(),
         };
 
         $body = <<<HTML
 <body class="survey-entry survey-t4c form-loaded">
     <div class="logo">
-        <img src="https://apismd.hsi.com/reports/assets/hsi-logo.png">
+        <img src="{$assetsBaseUrl}/hsi-logo.png">
     </div>
     <div class="survey-title">
         {$titleEscaped}
@@ -59,7 +60,7 @@ HTML;
         // Legacy substitution to avoid SVG rendering issues in Dompdf.
         return str_replace(
             'https://hsiassetstorage.sfo2.digitaloceanspaces.com/assets/images/solutions/homeIcons/safety-data-sheets-icon.svg',
-            'https://apismd.hsi.com/reports/assets/safety-data-sheets-icon.jpg',
+            $assetsBaseUrl.'/safety-data-sheets-icon.jpg',
             $html
         );
     }
@@ -101,6 +102,13 @@ HTML;
         }
 
         return [$fontDir, $fontCache, $temp];
+    }
+
+    private function reportsAssetsBaseUrl(): string
+    {
+        $base = rtrim((string) config('app.url'), '/');
+
+        return $base.'/reports/assets';
     }
 
     private function defaultInlineStyles(): string
