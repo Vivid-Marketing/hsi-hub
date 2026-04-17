@@ -15,11 +15,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // Course Catalog PDF pipeline
         $schedule->command('courses:pdf-stitch-batches --limit=10')
             ->everyMinute()
-            ->withoutOverlapping(5);
+            ->withoutOverlapping(5)
+            ->appendOutputTo(storage_path('logs/scheduler.log'));
 
         $schedule->command('courses:pdf-process --limit=10')
             ->everyMinute()
-            ->withoutOverlapping(20);
+            ->withoutOverlapping(20)
+            ->appendOutputTo(storage_path('logs/scheduler.log'));
     })
     ->withMiddleware(function (Middleware $middleware): void {
         // Add middleware to all web routes to prevent indexing
