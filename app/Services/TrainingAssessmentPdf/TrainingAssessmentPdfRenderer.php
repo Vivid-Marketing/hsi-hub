@@ -66,12 +66,13 @@ HTML;
 
     public function renderPdfBinary(string $html): string
     {
-        [$fontCacheDir, $tempDir] = $this->prepareWritableRuntimeDirs();
+        [$fontDir, $fontCacheDir, $tempDir] = $this->prepareWritableRuntimeDirs();
 
         $options = new Options();
         $options->set([
             'isRemoteEnabled' => true,
             // Cloudways/shared hosting often has read-only vendor/; font cache must be writable.
+            'fontDir' => $fontDir,
             'fontCache' => $fontCacheDir,
             'tempDir' => $tempDir,
         ]);
@@ -84,21 +85,22 @@ HTML;
     }
 
     /**
-     * @return array{0:string,1:string}
+     * @return array{0:string,1:string,2:string}
      */
     private function prepareWritableRuntimeDirs(): array
     {
         $base = storage_path('app/dompdf');
+        $fontDir = $base.'/fonts';
         $fontCache = $base.'/font-cache';
         $temp = $base.'/temp';
 
-        foreach ([$base, $fontCache, $temp] as $dir) {
+        foreach ([$base, $fontDir, $fontCache, $temp] as $dir) {
             if (! is_dir($dir)) {
                 mkdir($dir, 0775, true);
             }
         }
 
-        return [$fontCache, $temp];
+        return [$fontDir, $fontCache, $temp];
     }
 
     private function defaultInlineStyles(): string
