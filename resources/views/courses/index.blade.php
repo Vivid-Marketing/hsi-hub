@@ -149,17 +149,114 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     <div class="mb-6">
-                        <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('Courses Management') }}</h3>
-                        <p class="text-gray-600">{{ __('Manage your courses and course-related content.') }}</p>
+                        <h3 class="text-lg font-medium text-gray-900 mb-2">{{ __('CLD sync runs') }}</h3>
+                        <p class="text-gray-600">{{ __('Recent runs from cld:sync and cld:sync-singles (including the Courses page).') }}</p>
                     </div>
 
-                    <div class="text-center py-12">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                        </svg>
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">{{ __('No course list yet') }}</h3>
-                        <p class="mt-1 text-sm text-gray-500">{{ __('Additional course listing tools can be added here later.') }}</p>
-                    </div>
+                    @php
+                        try {
+                            $runs = \Illuminate\Support\Facades\DB::table('cld_sync_runs')
+                                ->orderByDesc('id')
+                                ->limit(25)
+                                ->get();
+                        } catch (\Throwable $e) {
+                            $runs = collect();
+                        }
+                    @endphp
+
+                    @if ($runs->isEmpty())
+                        <div class="rounded-md bg-gray-50 p-4 text-sm text-gray-700 border border-gray-200">
+                            {{ __('No sync runs recorded yet. Run') }} <span class="font-mono">php artisan cld:sync</span> {{ __('or') }}
+                            <span class="font-mono">php artisan cld:sync-singles 7142</span> {{ __('to start populating this list.') }}
+                        </div>
+                    @else
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-gray-50 text-gray-700">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left font-medium">{{ __('When') }}</th>
+                                        <th class="px-4 py-3 text-left font-medium">{{ __('Trigger') }}</th>
+                                        <th class="px-4 py-3 text-left font-medium">{{ __('Mode') }}</th>
+                                        <th class="px-4 py-3 text-left font-medium">{{ __('IDs') }}</th>
+                                        <th class="px-4 py-3 text-left font-medium">{{ __('Result') }}</th>
+                                        <th class="px-4 py-3 text-left font-medium">{{ __('FeedMe') }}</th>
+                                        <th class="px-4 py-3 text-left font-medium">{{ __('Duration') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white">
+                                    @foreach ($runs as $r)
+                                        @php
+                                            $failed = (int) ($r->failed ?? 0);
+                                            $aborted = ! empty($r->abort_reason);
+                                            $ok = ! $aborted && $failed === 0;
+                                        @endphp
+                                        <tr class="@if ($ok) bg-white @else bg-amber-50/40 @endif">
+                                            <td class="px-4 py-3 whitespace-nowrap text-gray-700">
+                                                {{ \Illuminate\Support\Carbon::parse($r->created_at)->diffForHumans() }}
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap font-mono text-xs text-gray-700">
+                                                {{ $r->trigger }}
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-gray-700">
+                                                {{ $r->mode }}
+                                            </td>
+                                            <td class="px-4 py-3 text-gray-700">
+                                                @if (! empty($r->requested_ids))
+                                                    <div class="font-mono text-xs break-all">{{ $r->requested_ids }}</div>
+                                                @else
+                                                    <span class="text-gray-400">—</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                @if ($aborted)
+                                                    <span class="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">{{ __('Aborted') }}</span>
+                                                @elseif ($failed > 0)
+                                                    <span class="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
+                                                        {{ __(':ok/:total ok', ['ok' => $r->succeeded ?? 0, 'total' => $r->total ?? 0]) }}
+                                                    </span>
+                                                @else
+                                                    <span class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900">
+                                                        {{ __(':ok/:total ok', ['ok' => $r->succeeded ?? 0, 'total' => $r->total ?? 0]) }}
+                                                    </span>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-gray-700">
+                                                @php
+                                                    $fmRan = (bool) ($r->feedme_ran ?? false);
+                                                    $fmOk = $r->feedme_ok;
+                                                    $fmCode = $r->feedme_http_code;
+                                                @endphp
+                                                @if (! $fmRan)
+                                                    <span class="text-gray-400">—</span>
+                                                @elseif ($fmOk)
+                                                    <span class="text-emerald-800">{{ __('OK') }}</span>
+                                                    <span class="text-gray-400 text-xs">({{ $fmCode ?? '?' }})</span>
+                                                @else
+                                                    <span class="text-amber-900">{{ __('Check') }}</span>
+                                                    <span class="text-gray-400 text-xs">({{ $fmCode ?? '?' }})</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-gray-700">
+                                                @if (! empty($r->duration_ms))
+                                                    {{ number_format(((int) $r->duration_ms) / 1000, 1) }}s
+                                                @else
+                                                    <span class="text-gray-400">—</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        @if (! empty($r->abort_reason))
+                                            <tr>
+                                                <td class="px-4 pb-4 pt-0 text-xs text-red-800" colspan="7">
+                                                    <span class="font-medium">{{ __('Abort reason:') }}</span>
+                                                    {{ $r->abort_reason }}
+                                                </td>
+                                            </tr>
+                                        @endif
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
