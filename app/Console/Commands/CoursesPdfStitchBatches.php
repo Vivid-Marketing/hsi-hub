@@ -23,8 +23,9 @@ class CoursesPdfStitchBatches extends Command
             ->selectRaw('job_id, MIN(total_batches) AS total_batches, COUNT(*) AS pending_batches, MAX(email) AS email, MIN(date_entered) AS first_seen')
             ->where('status', 'pending')
             ->groupBy('job_id')
-            ->havingRaw('pending_batches = total_batches')
-            ->orderBy('first_seen')
+            // Avoid relying on SELECT aliases in HAVING/ORDER BY (varies across MySQL/MariaDB modes).
+            ->havingRaw('COUNT(*) = MIN(total_batches)')
+            ->orderByRaw('MIN(date_entered) ASC')
             ->limit($jobLimit)
             ->get();
 
