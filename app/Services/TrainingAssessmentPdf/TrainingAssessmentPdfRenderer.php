@@ -3,6 +3,7 @@
 namespace App\Services\TrainingAssessmentPdf;
 
 use Dompdf\Dompdf;
+use Dompdf\Options;
 
 class TrainingAssessmentPdfRenderer
 {
@@ -65,14 +66,39 @@ HTML;
 
     public function renderPdfBinary(string $html): string
     {
-        $dompdf = new Dompdf();
-        $options = $dompdf->getOptions();
-        $options->set(['isRemoteEnabled' => true]);
-        $dompdf->setOptions($options);
+        [$fontCacheDir, $tempDir] = $this->prepareWritableRuntimeDirs();
+
+        $options = new Options();
+        $options->set([
+            'isRemoteEnabled' => true,
+            // Cloudways/shared hosting often has read-only vendor/; font cache must be writable.
+            'fontCache' => $fontCacheDir,
+            'tempDir' => $tempDir,
+        ]);
+
+        $dompdf = new Dompdf($options);
         $dompdf->loadHtml($html);
         $dompdf->render();
 
         return $dompdf->output();
+    }
+
+    /**
+     * @return array{0:string,1:string}
+     */
+    private function prepareWritableRuntimeDirs(): array
+    {
+        $base = storage_path('app/dompdf');
+        $fontCache = $base.'/font-cache';
+        $temp = $base.'/temp';
+
+        foreach ([$base, $fontCache, $temp] as $dir) {
+            if (! is_dir($dir)) {
+                mkdir($dir, 0775, true);
+            }
+        }
+
+        return [$fontCache, $temp];
     }
 
     private function defaultInlineStyles(): string
