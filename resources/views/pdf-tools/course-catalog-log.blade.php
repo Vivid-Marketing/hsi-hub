@@ -19,6 +19,27 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 class="text-lg font-medium text-gray-900">Scheduler status</h3>
+                            <p class="text-sm text-gray-600">
+                                Last update:
+                                <span class="font-mono">{{ $schedulerLogMtime ?? '—' }}</span>
+                            </p>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        @if (!empty($schedulerLogTail))
+                            <pre class="text-xs bg-gray-50 border rounded p-3 overflow-x-auto whitespace-pre-wrap">{{ $schedulerLogTail }}</pre>
+                        @else
+                            <div class="text-sm text-gray-500">No scheduler log output yet.</div>
+                        @endif
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 text-gray-900">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Recent Batch Jobs</h3>
                     <div class="overflow-x-auto">
                         <table class="min-w-full text-sm">
@@ -31,6 +52,9 @@
                                     <th class="py-2 px-3">Pending</th>
                                     <th class="py-2 px-3">Processed</th>
                                     <th class="py-2 px-3">Failed</th>
+                                    <th class="py-2 px-3">Stitched CPDID</th>
+                                    <th class="py-2 px-3">Processed at</th>
+                                    <th class="py-2 px-3">Error</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -43,10 +67,19 @@
                                         <td class="py-2 px-3">{{ $row->pending_batches }}</td>
                                         <td class="py-2 px-3">{{ $row->processed_batches }}</td>
                                         <td class="py-2 px-3">{{ $row->failed_batches }}</td>
+                                        <td class="py-2 px-3 font-mono">{{ $row->stitched_cpdid ?? '—' }}</td>
+                                        <td class="py-2 px-3">{{ $row->processed_at ?? '—' }}</td>
+                                        <td class="py-2 px-3">
+                                            @if (!empty($row->error_message))
+                                                <span class="text-red-700">{{ $row->error_message }}</span>
+                                            @else
+                                                <span class="text-gray-400">—</span>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="py-6 text-center text-gray-500">No batch jobs yet.</td>
+                                        <td colspan="10" class="py-6 text-center text-gray-500">No batch jobs yet.</td>
                                     </tr>
                                 @endforelse
                             </tbody>
