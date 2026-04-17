@@ -1,0 +1,140 @@
+<?php
+//From here, handle the request as it is ok
+error_reporting(E_ALL);
+ini_set('display_errors', 'On');
+// include(dirname( dirname(__FILE__) ).'/vendor/autoload.php');
+require(dirname(dirname(__FILE__)) . '/classes/generic.class.php');
+
+use Dompdf\Dompdf;
+use Dompdf\Options;
+
+class PdfReport extends Generic
+{
+    function __construct() {}
+
+    public function createPdfFromHtmlFile($url, $filename)
+    {
+        $websiteContent = file_get_contents($url);
+
+        $dompdf = new Dompdf();
+        $options = $dompdf->getOptions();
+        $options->set(array('isRemoteEnabled' => true));
+        $dompdf->loadHtml($websiteContent);
+
+        $dompdf->render();
+        // $dompdf->stream();
+        $output = $dompdf->output();
+        $target_dir = dirname(dirname(__FILE__)) . "/reports/pdf/";
+        file_put_contents($target_dir . $filename . '.pdf', $output);
+    }
+
+    public function createHtmlPage()
+    {
+
+        $request_body = file_get_contents('php://input');
+        $data = json_decode($request_body, true);
+        $title = $data['title'];
+        $name = str_replace(" ", "-", $data['name']);
+        $reportHtml = $data['reportHtml'];
+
+        $target_dir = dirname(dirname(__FILE__)) . "/reports/";
+        $htmlContent = $this->htmlTemplate($title, $name, $reportHtml);
+        $filename = "HSI-T4C-training-assessment-report-" . $name . "-" . date("Y-m-d-H-i");
+        $myFile = $target_dir . $filename . ".html"; // or .php
+        $fh = fopen($myFile, 'w'); // or die("error");
+        fwrite($fh, $htmlContent);
+        fclose($fh);
+        $url = 'https://apismd.hsi.com/reports/' . $filename . '.html';
+        $this->createPdfFromHtmlFile($url, $filename);
+        $pdfLocation = dirname(dirname(__FILE__)) . '/reports/pdf/' . $filename . '.pdf';
+        $cdnUrl = parent::uploadReportPdfToDigitalOcean($pdfLocation, $filename . '.pdf');
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['pdfUrl' => $cdnUrl]);
+    }
+
+    public function htmlTemplate($title, $name, $reportHtml)
+    {
+        //$title = 'Safety Training Needs Assessment';
+        $htmlContent = ' <html lang="en" style="--sw-progress-width: 100%;">
+
+        <head>
+
+            <meta http-equiv="X-UA-Compatible" content="IE=edge">
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+            <meta name="referrer" content="strict-origin-when-cross-origin">
+            <link href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;1,200;1,300;1,400;1,500;1,600;1,700&amp;display=swap" rel="stylesheet">
+            <title>
+                HSI | ' . $title . '
+</title>
+
+<link rel="stylesheet" type="text/css" media="screen" href="https://apismd.hsi.com/reports/assets/styles.css" />
+<style>
+html {
+    margin: 20px;
+}
+.bg-image {
+    display: none !important;
+}
+.survey-entry .survey-wrapper .tab-content .tab-pane.report-pane .report-results .question-report-inner .question-frequencies span {
+    margin: 5px;
+}
+.survey-entry .survey-wrapper .tab-content .tab-pane.report-pane .report-results .question-report-inner .question-report-courses .course-link a {
+    margin: 5px 2px !important;
+}
+.report-summary-meta div {
+    margin: 5px;    
+}
+.survey-entry .survey-wrapper .tab-content .tab-pane.report-pane .report-results .question-report-inner .question-regulations span {
+    margin: 5px 2px !important;
+}
+.logo {
+    text-align: center;
+    display: block;
+    width: 100%;
+}
+.survey-entry .survey-wrapper .tab-content .tab-pane.report-pane .report-results .question-report-inner .question-question ul {
+    list-style-type: disc;
+    padding-inline-start: 25px;
+}
+</style>
+</head>
+
+<body class="survey-entry survey-t4c form-loaded">
+    <div class="logo">
+        <img src="https://apismd.hsi.com/reports/assets/hsi-logo.png">
+    </div>
+    <div class="survey-title">
+        ' . $title . '
+    </div>
+    <div class="survey-wrapper">
+
+        <div id="smartwizard" dir="" class="sw sw-theme-basic sw-justified">
+
+
+            <div class="tab-content">
+
+                <div id="step-21" data-page-num="21" class="tab-pane report-pane" role="tabpanel"
+                    aria-labelledby="step-21" style="">
+
+                    ' . $reportHtml . '
+
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>';
+        $htmlContent = str_replace(
+            'https://hsiassetstorage.sfo2.digitaloceanspaces.com/assets/images/solutions/homeIcons/safety-data-sheets-icon.svg',
+            'https://apismd.hsi.com/reports/assets/safety-data-sheets-icon.jpg',
+            $htmlContent
+        );
+        return $htmlContent;
+    }
+}
+$pdfReport = new PdfReport();

@@ -82,31 +82,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <div class="mt-8 p-4 bg-gray-50 rounded-lg">
-                        <h4 class="text-md font-medium text-gray-900 mb-2">Quick Actions</h4>
-                        <div class="flex flex-wrap gap-2">
-                            @can('view-courses')
-                            <a href="{{ route('courses.index') }}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                                View Courses
-                            </a>
-                            @endcan
-                            
-                            @can('view-pdf-tools')
-                            <a href="{{ route('pdf-tools.index') }}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500">
-                                PDF Tools
-                            </a>
-                            @endcan
-                            
-                            <a href="{{ route('mp3-tools.index') }}" class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500">
-                                MP3 Tools
-                            </a>
-                            
-                            <a href="{{ route('profile.edit') }}" class="inline-flex items-center px-3 py-2 border border-gray-300 text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                                Edit Profile
-                            </a>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

@@ -28,11 +28,15 @@
                     </x-nav-link>
                     @endcan
                     
-                    @can('manage-users')
+                    <x-nav-link :href="route('mp3-tools.index')" :active="request()->routeIs('mp3-tools.*')">
+                        {{ __('Podcast Tools') }}
+                    </x-nav-link>
+                    
+                    <!-- @can('manage-users')
                     <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                         {{ __('User Management') }}
                     </x-nav-link>
-                    @endcan
+                    @endcan -->
                 </div>
             </div>
 
@@ -100,6 +104,10 @@
                 {{ __('PDF Tools') }}
             </x-responsive-nav-link>
             @endcan
+            
+            <x-responsive-nav-link :href="route('mp3-tools.index')" :active="request()->routeIs('mp3-tools.*')">
+                {{ __('Podcast Tools') }}
+            </x-responsive-nav-link>
             
             @can('manage-users')
             <x-responsive-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">

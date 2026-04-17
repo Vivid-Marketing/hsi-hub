@@ -1,0 +1,14 @@
+{
+    "require": {
+        "sergeytsalkov/meekrodb": "^2.4",
+        "catfan/medoo": "^2.1",
+        "phpoffice/phpspreadsheet": "^1.29",
+        "spatie/image-optimizer": "^1.7",
+        "aws/aws-sdk-php": "^3.279",
+        "dompdf/dompdf": "^2.0",
+        "guzzlehttp/guzzle": "^7.8",
+        "vlucas/phpdotenv": "^5.6",
+        "wildbit/postmark-php": "^6.0",
+        "sendgrid/sendgrid": "^8.1"
+    }
+}
