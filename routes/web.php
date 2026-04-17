@@ -75,10 +75,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/courses/{course}/edit', [CoursesController::class, 'edit'])
         ->middleware('permission:edit-courses')
         ->name('courses.edit');
-    Route::put('/courses/{course}', [CoursesController::class, 'update'])
-        ->middleware('permission:edit-courses')
-        ->name('courses.update');
-    Route::patch('/courses/{course}', [CoursesController::class, 'update'])
+    Route::match(['put', 'patch'], '/courses/{course}', [CoursesController::class, 'update'])
         ->middleware('permission:edit-courses')
         ->name('courses.update');
     Route::delete('/courses/{course}', [CoursesController::class, 'destroy'])
