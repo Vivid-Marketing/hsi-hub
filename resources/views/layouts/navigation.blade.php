@@ -32,11 +32,11 @@
                         {{ __('Podcast Tools') }}
                     </x-nav-link>
                     
-                    <!-- @can('manage-users')
+                    @can('manage-users')
                     <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                         {{ __('User Management') }}
                     </x-nav-link>
-                    @endcan -->
+                    @endcan
                 </div>
             </div>
 
@@ -59,6 +59,12 @@
                         <x-dropdown-link :href="route('profile.edit')">
                             {{ __('Profile') }}
                         </x-dropdown-link>
+
+                        @can('manage-users')
+                        <x-dropdown-link :href="route('users.index')">
+                            {{ __('User Management') }}
+                        </x-dropdown-link>
+                        @endcan
 
                         <!-- Authentication -->
                         <form method="POST" action="{{ route('logout') }}">
