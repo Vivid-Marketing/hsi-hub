@@ -217,7 +217,32 @@ class CldApiService
 
     public function convertSpecialChar(string $text): string
     {
-        return preg_replace('/&([a-z])[a-z]+;/i', '$1', htmlentities($text));
+        if ($text === '') {
+            return '';
+        }
+
+        // Normalize to UTF-8 (CLD occasionally includes Windows-1252 punctuation).
+        if (! mb_check_encoding($text, 'UTF-8')) {
+            $text = mb_convert_encoding($text, 'UTF-8', 'UTF-8, Windows-1252, ISO-8859-1');
+        }
+
+        // Convert “smart” punctuation to plain ASCII for FeedMe import consistency.
+        // (This is where "n/m/q" were coming from previously via htmlentities().)
+        $text = strtr($text, [
+            "\u{2013}" => '-', // en dash
+            "\u{2014}" => '-', // em dash
+            "\u{2212}" => '-', // minus sign
+            "\u{2018}" => "'", // left single quote
+            "\u{2019}" => "'", // right single quote
+            "\u{201C}" => '"', // left double quote
+            "\u{201D}" => '"', // right double quote
+            "\u{00A0}" => ' ', // non-breaking space
+        ]);
+
+        // Collapse odd whitespace (but keep normal spaces).
+        $text = preg_replace('/[ \t]+/u', ' ', $text) ?? $text;
+
+        return trim($text);
     }
 
     public static function slugify(string $text, string $divider = '-'): string

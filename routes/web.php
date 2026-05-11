@@ -11,6 +11,7 @@ use App\Http\Controllers\TrainingAssessmentPdfController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Internal\CourseCatalogPdfBatchesController;
 use App\Http\Controllers\Internal\CronScheduleController;
+use App\Http\Controllers\Internal\SurveysPdfLogsController;
 use App\Http\Controllers\PdfTools\CourseCatalogPdfLogController;
 use App\Http\Controllers\PdfTools\TrainingAssessmentPdfLogController;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,12 @@ Route::post('/internal/course-catalog-pdf/batches', [CourseCatalogPdfBatchesCont
     ->middleware('internal.signature')
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
     ->name('internal.course-catalog-pdf.batches.store');
+
+// Internal endpoint for batched Survey PDF logging events (signed request).
+Route::post('/internal/surveys-pdf/logs', [SurveysPdfLogsController::class, 'store'])
+    ->middleware('surveys-pdf.signature')
+    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class])
+    ->name('internal.surveys-pdf.logs.store');
 
 // Internal endpoint to run Laravel scheduler via a single cron hit.
 Route::get('/internal/cron/schedule', [CronScheduleController::class, 'run'])

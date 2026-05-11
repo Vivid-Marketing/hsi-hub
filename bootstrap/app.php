@@ -38,6 +38,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'internal.signature' => \App\Http\Middleware\VerifyInternalRequestSignature::class,
+            'surveys-pdf.signature' => \App\Http\Middleware\VerifySurveysPdfRequestSignature::class,
             'training-assessment-pdf.cors' => \App\Http\Middleware\TrainingAssessmentPdfCors::class,
             'cron.token' => \App\Http\Middleware\VerifyCronToken::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
