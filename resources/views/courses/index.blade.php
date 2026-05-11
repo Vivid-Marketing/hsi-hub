@@ -56,8 +56,11 @@
                                         <span class="block mt-1 text-sm text-gray-600">
                                             {{ __('When enabled, after courses are fetched, FeedMe is triggered so Craft / the website can sync from the singles feed.') }}
                                         </span>
-                                        @if (empty(config('cld_api.feedme.passkey')))
-                                            <span class="block mt-2 text-xs text-amber-700">{{ __('FeedMe is disabled until CLD_FEEDME_PASSKEY is set in .env.') }}</span>
+                                        <span class="block mt-2 text-xs text-gray-500">
+                                            {{ __('FeedMe feed ID for this action: :id (set CLD_FEEDME_SINGLES_FEED_ID in .env if it should differ from the cron feed).', ['id' => $feedMeSinglesFeedId ?? (int) config('cld_api.feedme.singles_feed_id')]) }}
+                                        </span>
+                                        @if (empty(config('cld_api.feedme.singles_passkey')))
+                                            <span class="block mt-2 text-xs text-amber-700">{{ __('FeedMe is disabled until CLD_FEEDME_SINGLES_PASSKEY or CLD_FEEDME_PASSKEY is set in .env.') }}</span>
                                         @endif
                                     </span>
                                 </label>
@@ -122,7 +125,7 @@
                                 @else
                                     @if (! ($sync['feedme_configured'] ?? false))
                                         <p class="mt-3 text-amber-900">
-                                            {{ __('Send to Craft was selected, but CLD_FEEDME_PASSKEY is not set — FeedMe was not triggered.') }}
+                                            {{ __('Send to Craft was selected, but no FeedMe passkey is configured (set CLD_FEEDME_SINGLES_PASSKEY or CLD_FEEDME_PASSKEY) — FeedMe was not triggered.') }}
                                         </p>
                                         <p class="mt-2">
                                             <a href="{{ $sync['singles_feed_url'] ?? '#' }}" target="_blank" rel="noopener noreferrer" class="underline">

@@ -1,5 +1,17 @@
 <?php
 
+$feedmeProdFeedId = (int) env('CLD_FEEDME_PROD_FEED_ID', 70);
+$singlesFeedIdRaw = env('CLD_FEEDME_SINGLES_FEED_ID');
+$feedmeSinglesFeedId = ($singlesFeedIdRaw !== null && $singlesFeedIdRaw !== '')
+    ? (int) $singlesFeedIdRaw
+    : $feedmeProdFeedId;
+
+$feedmePasskey = env('CLD_FEEDME_PASSKEY');
+$singlesPasskeyRaw = env('CLD_FEEDME_SINGLES_PASSKEY');
+$feedmeSinglesPasskey = ($singlesPasskeyRaw !== null && $singlesPasskeyRaw !== '')
+    ? $singlesPasskeyRaw
+    : $feedmePasskey;
+
 return [
 
     /*
@@ -24,8 +36,12 @@ return [
     */
     'feedme' => [
         'prod_url' => env('CLD_FEEDME_PROD_URL', 'https://hsi.com/index.php/actions/feed-me/feeds/run-task'),
-        'passkey' => env('CLD_FEEDME_PASSKEY'),
-        'prod_feed_id' => env('CLD_FEEDME_PROD_FEED_ID', 70),
+        'passkey' => $feedmePasskey,
+        // Singles / Courses Manager: defaults to passkey when CLD_FEEDME_SINGLES_PASSKEY is unset.
+        'singles_passkey' => $feedmeSinglesPasskey,
+        'prod_feed_id' => $feedmeProdFeedId,
+        // Courses Manager "Send to Craft" only. When unset, uses prod_feed_id (cron / CLI use prod_feed_id or --feed-id).
+        'singles_feed_id' => $feedmeSinglesFeedId,
         'timeout_seconds' => (int) env('CLD_FEEDME_TIMEOUT', 300),
     ],
 

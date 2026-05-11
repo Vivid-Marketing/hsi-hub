@@ -1057,6 +1057,21 @@ class CldApiService
     }
 
     /**
+     * Build the Craft Feed Me run-task URL (handles base URL with or without an existing query string).
+     */
+    protected function buildFeedMeRunTaskUrl(int $feedId, string $passkey): string
+    {
+        $base = rtrim((string) config('cld_api.feedme.prod_url'), '?&');
+        $query = http_build_query([
+            'direct' => '1',
+            'feedId' => $feedId,
+            'passkey' => $passkey,
+        ], '', '&', PHP_QUERY_RFC3986);
+
+        return str_contains($base, '?') ? $base.'&'.$query : $base.'?'.$query;
+    }
+
+    /**
      * Trigger Craft Feed Me “run task” URL. Uses a long read timeout because imports can run for minutes.
      * Logs a redacted URL (passkey masked). Detects common “login page” responses when HTTP status is still 200.
      */
@@ -1199,10 +1214,13 @@ class CldApiService
         $this->matchParentToChildLanguages($table);
 
         $feedMeResult = null;
-        if ($runFeedMe && config('cld_api.feedme.passkey')) {
-            $baseUrl = config('cld_api.feedme.prod_url');
-            $url = $baseUrl.'?direct=1&feedId='.$feedId.'&passkey='.config('cld_api.feedme.passkey');
-            $feedMeResult = $this->triggerFeedMeAction($url);
+        if ($runFeedMe) {
+            $passkey = (string) ($doSingleBatch
+                ? config('cld_api.feedme.singles_passkey')
+                : config('cld_api.feedme.passkey'));
+            if ($passkey !== '') {
+                $feedMeResult = $this->triggerFeedMeAction($this->buildFeedMeRunTaskUrl($feedId, $passkey));
+            }
         }
 
         return new CldSyncResult(

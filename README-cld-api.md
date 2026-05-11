@@ -12,7 +12,7 @@ CLD (Courses API) sync is now available as a Laravel Artisan command and service
 
   Options:
   - `--no-feedme` – skip calling FeedMe after sync
-  - `--feed-id=70` – FeedMe feed ID
+  - `--feed-id=` – optional FeedMe feed ID; if omitted, uses `CLD_FEEDME_PROD_FEED_ID` from `.env` (default **70** for the weekly / full import)
   - `--basic-filter` – only use LastUpdate (skip image/locale checks)
 
   Example for cron:
@@ -28,7 +28,7 @@ CLD (Courses API) sync is now available as a Laravel Artisan command and service
 
   Options:
   - `--no-feedme` – skip calling FeedMe after sync
-  - `--feed-id=70` – FeedMe feed ID
+  - `--feed-id=` – optional FeedMe feed ID; if omitted, uses `CLD_FEEDME_SINGLES_FEED_ID` or falls back to `CLD_FEEDME_PROD_FEED_ID` (same as Courses Manager “Send to Craft”)
 
 - **Manual list via code** – you can still call the service from a custom command or controller:
 
@@ -61,9 +61,11 @@ Optional protection:
 | `CLD_API_ADMIN_ID` | CLD API auth Admin_ID (required for token) |
 | `CLD_API_PASSWORD` | CLD API auth Password (required for token) |
 | `CLD_FEEDS_PASSKEY` | Optional passkey required to access `/feeds/cld/*` endpoints |
-| `CLD_FEEDME_PASSKEY` | Passkey for FeedMe run-task URL (optional; if empty, FeedMe is not triggered) |
+| `CLD_FEEDME_PASSKEY` | Passkey for full/cron FeedMe run-task (`cld:sync`). If empty, full sync does not trigger FeedMe |
+| `CLD_FEEDME_SINGLES_PASSKEY` | Optional passkey for singles FeedMe (`cld:sync-singles`, Courses Manager). If empty, `CLD_FEEDME_PASSKEY` is used |
 | `CLD_FEEDME_PROD_URL` | FeedMe run-task base URL (default: production Craft URL in `config/cld_api.php`) |
-| `CLD_FEEDME_PROD_FEED_ID` | FeedMe feed ID (default: 70) |
+| `CLD_FEEDME_PROD_FEED_ID` | FeedMe feed ID for `php artisan cld:sync` (default: 70) and default for singles when `CLD_FEEDME_SINGLES_FEED_ID` is unset |
+| `CLD_FEEDME_SINGLES_FEED_ID` | Optional: feed ID used only by Courses Manager **Send to Craft** (defaults to `CLD_FEEDME_PROD_FEED_ID`). Set this to your Craft “singles batch” feed (e.g. 84) if it differs from the cron feed. |
 | `CLD_DO_SPACES_KEY` | DigitalOcean Spaces key (course images CDN) |
 | `CLD_DO_SPACES_SECRET` | DigitalOcean Spaces secret |
 | `CLD_DO_SPACES_BUCKET` | Bucket name (default: `hsiassetstorage`) |

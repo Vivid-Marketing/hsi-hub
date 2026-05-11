@@ -18,6 +18,7 @@ class CoursesController extends Controller
     {
         return view('courses.index', [
             'maxSinglesIds' => (int) config('cld_api.ui.max_singles_ids', 50),
+            'feedMeSinglesFeedId' => (int) config('cld_api.feedme.singles_feed_id'),
         ]);
     }
 
@@ -31,8 +32,8 @@ class CoursesController extends Controller
         $ids = $request->parsedLessonIds();
 
         $runFeedMe = $request->boolean('send_to_craft')
-            && ! empty(config('cld_api.feedme.passkey'));
-        $feedId = (int) config('cld_api.feedme.prod_feed_id', 70);
+            && ! empty(config('cld_api.feedme.singles_passkey'));
+        $feedId = (int) config('cld_api.feedme.singles_feed_id');
 
         $startedAt = microtime(true);
         $runId = null;
@@ -45,7 +46,7 @@ class CoursesController extends Controller
                 'succeeded' => 0,
                 'failed' => 0,
                 'send_to_craft' => $request->boolean('send_to_craft'),
-                'feedme_configured' => ! empty(config('cld_api.feedme.passkey')),
+                'feedme_configured' => ! empty(config('cld_api.feedme.singles_passkey')),
                 'feedme_ran' => false,
                 'feedme_ok' => null,
                 'feedme_http_code' => null,
@@ -122,7 +123,7 @@ class CoursesController extends Controller
         }
 
         $userWantedCraft = $request->boolean('send_to_craft');
-        $feedMeConfigured = ! empty(config('cld_api.feedme.passkey'));
+        $feedMeConfigured = ! empty(config('cld_api.feedme.singles_passkey'));
         $singlesFeedUrl = route('feeds.cld.courses.singles');
         if (! empty(config('cld_api.feeds.passkey'))) {
             $singlesFeedUrl .= '?passkey='.rawurlencode((string) config('cld_api.feeds.passkey'));

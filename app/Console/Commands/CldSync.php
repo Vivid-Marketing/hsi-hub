@@ -17,7 +17,7 @@ class CldSync extends Command
      */
     protected $signature = 'cld:sync
                             {--no-feedme : Skip triggering FeedMe after sync}
-                            {--feed-id=70 : FeedMe feed ID}
+                            {--feed-id= : FeedMe feed ID (defaults to CLD_FEEDME_PROD_FEED_ID / config)}
                             {--basic-filter : Only use LastUpdate (skip image/locale checks)}';
 
     /**
@@ -33,7 +33,10 @@ class CldSync extends Command
     public function handle(CldApiService $cldApi, CldSyncNotifier $notifier): int
     {
         $runFeedMe = ! $this->option('no-feedme');
-        $feedId = (int) $this->option('feed-id');
+        $feedIdRaw = $this->option('feed-id');
+        $feedId = ($feedIdRaw !== null && $feedIdRaw !== '' && $feedIdRaw !== false)
+            ? (int) $feedIdRaw
+            : (int) config('cld_api.feedme.prod_feed_id', 70);
         $includeImageAndLocaleChecks = ! $this->option('basic-filter');
 
         $this->info('Starting CLD API sync (runFeedMe='.($runFeedMe ? 'yes' : 'no').')');

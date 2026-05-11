@@ -18,7 +18,7 @@ class CldSyncSingles extends Command
     protected $signature = 'cld:sync-singles
                             {ids* : One or more CLD Lesson IDs to fetch (e.g. 7142 15394)}
                             {--no-feedme : Skip triggering FeedMe after sync}
-                            {--feed-id=70 : FeedMe feed ID}';
+                            {--feed-id= : FeedMe feed ID (defaults to CLD_FEEDME_SINGLES_FEED_ID or CLD_FEEDME_PROD_FEED_ID / config)}';
 
     /**
      * The console command description.
@@ -42,7 +42,10 @@ class CldSyncSingles extends Command
         }
 
         $runFeedMe = ! $this->option('no-feedme');
-        $feedId = (int) $this->option('feed-id');
+        $feedIdRaw = $this->option('feed-id');
+        $feedId = ($feedIdRaw !== null && $feedIdRaw !== '' && $feedIdRaw !== false)
+            ? (int) $feedIdRaw
+            : (int) config('cld_api.feedme.singles_feed_id');
 
         $this->info('Starting CLD API singles sync (ids='.implode(',', $ids).', runFeedMe='.($runFeedMe ? 'yes' : 'no').')');
 
@@ -57,7 +60,7 @@ class CldSyncSingles extends Command
                 'succeeded' => 0,
                 'failed' => 0,
                 'send_to_craft' => $runFeedMe,
-                'feedme_configured' => ! empty(config('cld_api.feedme.passkey')),
+                'feedme_configured' => ! empty(config('cld_api.feedme.singles_passkey')),
                 'feedme_ran' => false,
                 'feedme_ok' => null,
                 'feedme_http_code' => null,
