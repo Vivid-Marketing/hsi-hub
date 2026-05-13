@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Internal;
 
 use App\Http\Controllers\Controller;
+use App\Models\SurveysPdfLogEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -48,6 +49,7 @@ class SurveysPdfLogsController extends Controller
 
         $logged = 0;
         $dropped = 0;
+        $hubIp = (string) $request->ip();
 
         foreach ($events as $idx => $event) {
             if (! is_array($event)) {
@@ -69,6 +71,9 @@ class SurveysPdfLogsController extends Controller
             }
 
             $visitorId = isset($context['visitorId']) ? trim((string) $context['visitorId']) : null;
+            $userAgent = isset($context['userAgent']) ? substr((string) $context['userAgent'], 0, 300) : null;
+
+            $extras = $this->boundedExtras($context, $eventName);
 
             $logContext = [
                 'source' => $source !== '' ? $source : null,
@@ -82,25 +87,37 @@ class SurveysPdfLogsController extends Controller
                 'page' => $page !== '' ? $page : null,
                 'path' => $path,
                 'visitorId' => $visitorId !== '' ? $visitorId : null,
-                // Keep context bounded: include only small, useful search facets.
-                'userAgent' => isset($context['userAgent']) ? substr((string) $context['userAgent'], 0, 300) : null,
-                'language' => isset($context['language']) ? substr((string) $context['language'], 0, 32) : null,
-                'platform' => isset($context['platform']) ? substr((string) $context['platform'], 0, 64) : null,
-                'timezone' => isset($context['timezone']) ? substr((string) $context['timezone'], 0, 64) : null,
+                'userAgent' => $userAgent,
+                'language' => $extras['language'] ?? null,
+                'platform' => $extras['platform'] ?? null,
+                'timezone' => $extras['timezone'] ?? null,
             ];
 
-            // Best-effort: include a compact hint for pdf_fetch_error.
-            if ($eventName === 'pdf_fetch_error' && isset($context['responseInfo'])) {
-                $ri = $context['responseInfo'];
-                $logContext['responseInfo'] = is_scalar($ri) ? substr((string) $ri, 0, 500) : null;
+            if ($eventName === 'pdf_fetch_error' && isset($extras['responseInfo'])) {
+                $logContext['responseInfo'] = $extras['responseInfo'];
             }
 
-            // Emit an event-level log line to make searching easy.
             if ($level === 'error') {
                 Log::error('surveys_pdf_event', $logContext);
             } else {
                 Log::info('surveys_pdf_event', $logContext);
             }
+
+            SurveysPdfLogEvent::query()->create([
+                'event_ts_ms' => (int) $tsMs,
+                'received_at_unix' => is_numeric($receivedAt) ? (int) $receivedAt : null,
+                'source' => $source !== '' ? $source : null,
+                'client_ip' => $clientIp !== '' ? $clientIp : null,
+                'hub_ip' => $hubIp !== '' ? $hubIp : null,
+                'level' => $level !== '' ? $level : null,
+                'event_type' => $eventName,
+                'survey' => $survey,
+                'page' => $page !== '' ? $page : null,
+                'path' => $path,
+                'visitor_id' => $visitorId !== '' ? $visitorId : null,
+                'user_agent' => $userAgent,
+                'extras' => $extras !== [] ? $extras : null,
+            ]);
 
             $logged++;
         }
@@ -113,10 +130,35 @@ class SurveysPdfLogsController extends Controller
             'eventsProcessed' => count($events),
             'eventsLogged' => $logged,
             'eventsDropped' => $dropped + max(0, $originalCount - count($events)),
-            'ip' => (string) $request->ip(),
+            'ip' => $hubIp,
         ]);
 
         return response()->json(['success' => true]);
     }
-}
 
+    /**
+     * @param  array<string, mixed>  $context
+     * @return array<string, mixed>
+     */
+    private function boundedExtras(array $context, string $eventName): array
+    {
+        $out = [];
+
+        if (isset($context['language'])) {
+            $out['language'] = substr((string) $context['language'], 0, 32);
+        }
+        if (isset($context['platform'])) {
+            $out['platform'] = substr((string) $context['platform'], 0, 64);
+        }
+        if (isset($context['timezone'])) {
+            $out['timezone'] = substr((string) $context['timezone'], 0, 64);
+        }
+
+        if ($eventName === 'pdf_fetch_error' && isset($context['responseInfo'])) {
+            $ri = $context['responseInfo'];
+            $out['responseInfo'] = is_scalar($ri) ? substr((string) $ri, 0, 500) : null;
+        }
+
+        return array_filter($out, static fn ($v) => $v !== null && $v !== '');
+    }
+}

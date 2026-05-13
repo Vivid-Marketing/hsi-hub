@@ -82,6 +82,83 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <div class="mt-10 border-t border-gray-200 pt-8">
+                        <h3 class="text-base font-semibold text-gray-900 mb-1">{{ __('Survey telemetry (Craft batches)') }}</h3>
+                        <p class="mb-4 text-sm text-gray-600">
+                            {{ __('Ingested from') }}
+                            <code class="px-1 py-0.5 bg-gray-100 rounded">POST /internal/surveys-pdf/logs</code>
+                            {{ __('(signed). Most recent events below.') }}
+                        </p>
+
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('When (client)') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Level') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Event') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Survey') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Page') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Path') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Visitor') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Client / hub IP') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Source') }}</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{{ __('Extras') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white divide-y divide-gray-200">
+                                    @forelse($surveyEvents as $ev)
+                                        <tr>
+                                            <td class="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">
+                                                {{ $ev->client_occurred_at->format('Y-m-d H:i:s') }}
+                                            </td>
+                                            <td class="px-4 py-2 text-sm whitespace-nowrap">
+                                                @if(($ev->level ?? '') === 'error')
+                                                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">{{ $ev->level }}</span>
+                                                @elseif($ev->level)
+                                                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">{{ $ev->level }}</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">{{ $ev->event_type }}</td>
+                                            <td class="px-4 py-2 text-sm text-gray-700 whitespace-nowrap">{{ $ev->survey }}</td>
+                                            <td class="px-4 py-2 text-sm text-gray-700 max-w-[8rem]">
+                                                @if($ev->page)
+                                                    <div class="truncate" title="{{ $ev->page }}">{{ $ev->page }}</div>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-700 max-w-xs">
+                                                <div class="truncate" title="{{ $ev->path }}">{{ $ev->path }}</div>
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-700 max-w-[10rem]">
+                                                @if($ev->visitor_id)
+                                                    <div class="truncate font-mono text-xs" title="{{ $ev->visitor_id }}">{{ $ev->visitor_id }}</div>
+                                                @endif
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-700">
+                                                <div>{{ $ev->client_ip }}</div>
+                                                <div class="text-gray-500 text-xs">{{ $ev->hub_ip }}</div>
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-700 max-w-[8rem]">
+                                                <div class="truncate" title="{{ $ev->source }}">{{ $ev->source }}</div>
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-700 max-w-md">
+                                                @if($ev->extras && count($ev->extras))
+                                                    <div class="truncate font-mono text-xs" title="{{ json_encode($ev->extras) }}">{{ json_encode($ev->extras) }}</div>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="10" class="px-4 py-6 text-center text-sm text-gray-500">
+                                                {{ __('No survey telemetry rows yet.') }}
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

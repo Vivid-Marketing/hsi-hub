@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\PdfTools;
 
 use App\Http\Controllers\Controller;
+use App\Models\SurveysPdfLogEvent;
 use App\Models\TrainingAssessmentPdfLog;
 use Illuminate\View\View;
 
@@ -21,8 +22,14 @@ class TrainingAssessmentPdfLogController extends Controller
             ->limit(100)
             ->get();
 
+        $surveyEvents = SurveysPdfLogEvent::query()
+            ->orderByDesc('id')
+            ->limit(200)
+            ->get();
+
         return view('pdf-tools.training-assessment-log', [
             'recent' => $recent,
+            'surveyEvents' => $surveyEvents,
         ]);
     }
 }
