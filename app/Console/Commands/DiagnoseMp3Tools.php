@@ -69,18 +69,23 @@ class DiagnoseMp3Tools extends Command
         if ($nodePath) {
             $this->line('   ✅ Node.js found at: ' . $nodePath);
             
-            $version = shell_exec("{$nodePath} --version 2>&1");
-            if ($version) {
-                $this->line('   📋 Version: ' . trim($version));
-            }
-            
-            // Test if we can execute a simple command
-            $testOutput = shell_exec("{$nodePath} -e 'console.log(\"OK\")' 2>&1");
-            if (trim($testOutput) === 'OK') {
-                $this->line('   ✅ Node.js is executable');
+            if (function_exists('shell_exec')) {
+                $version = shell_exec("{$nodePath} --version 2>&1");
+                if ($version) {
+                    $this->line('   📋 Version: ' . trim($version));
+                }
+                
+                // Test if we can execute a simple command
+                $testOutput = shell_exec("{$nodePath} -e 'console.log(\"OK\")' 2>&1");
+                if (trim($testOutput) === 'OK') {
+                    $this->line('   ✅ Node.js is executable');
+                } else {
+                    $this->error('   ❌ Node.js execution test failed');
+                    $issues[] = 'Node.js cannot execute commands';
+                }
             } else {
-                $this->error('   ❌ Node.js execution test failed');
-                $issues[] = 'Node.js cannot execute commands';
+                $this->warn('   ⚠️  shell_exec is disabled; skipping node execution tests');
+                $warnings[] = 'shell_exec disabled; could not verify node execution';
             }
         } else {
             $this->error('   ❌ Node.js NOT found');
@@ -91,12 +96,17 @@ class DiagnoseMp3Tools extends Command
         // Check if we can run the script (syntax check)
         if ($nodePath && file_exists($scriptPath)) {
             $this->info('4. Testing extract-mp3.js syntax...');
-            $syntaxCheck = shell_exec("{$nodePath} --check {$scriptPath} 2>&1");
-            if ($syntaxCheck === null || trim($syntaxCheck) === '') {
-                $this->line('   ✅ Script syntax is valid');
+            if (function_exists('shell_exec')) {
+                $syntaxCheck = shell_exec("{$nodePath} --check {$scriptPath} 2>&1");
+                if ($syntaxCheck === null || trim($syntaxCheck) === '') {
+                    $this->line('   ✅ Script syntax is valid');
+                } else {
+                    $this->warn('   ⚠️  Syntax check output: ' . trim($syntaxCheck));
+                    $warnings[] = 'Script syntax check returned output';
+                }
             } else {
-                $this->warn('   ⚠️  Syntax check output: ' . trim($syntaxCheck));
-                $warnings[] = 'Script syntax check returned output';
+                $this->warn('   ⚠️  shell_exec is disabled; skipping syntax check');
+                $warnings[] = 'shell_exec disabled; could not run node --check';
             }
             $this->newLine();
         }
@@ -188,26 +198,31 @@ class DiagnoseMp3Tools extends Command
             $this->line('   📋 Command: ' . $command);
             
             // Set a timeout
-            $output = shell_exec($command);
-            
-            if ($output === null) {
-                $this->error('   ❌ Script execution returned null');
-                $issues[] = 'Script execution failed (returned null)';
-            } else {
-                $this->line('   ✅ Script executed (output length: ' . strlen($output) . ' bytes)');
+            if (function_exists('shell_exec')) {
+                $output = shell_exec($command);
                 
-                // Try to parse as JSON
-                $result = json_decode($output, true);
-                if (json_last_error() === JSON_ERROR_NONE) {
-                    $this->line('   ✅ Output is valid JSON');
-                    if (isset($result['success'])) {
-                        $this->line('   📋 Result: success=' . ($result['success'] ? 'true' : 'false'));
-                    }
+                if ($output === null) {
+                    $this->error('   ❌ Script execution returned null');
+                    $issues[] = 'Script execution failed (returned null)';
                 } else {
-                    $this->warn('   ⚠️  Output is not valid JSON: ' . json_last_error_msg());
-                    $this->line('   📋 First 200 chars of output: ' . substr($output, 0, 200));
-                    $warnings[] = 'Script output is not valid JSON';
+                    $this->line('   ✅ Script executed (output length: ' . strlen($output) . ' bytes)');
+                    
+                    // Try to parse as JSON
+                    $result = json_decode($output, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $this->line('   ✅ Output is valid JSON');
+                        if (isset($result['success'])) {
+                            $this->line('   📋 Result: success=' . ($result['success'] ? 'true' : 'false'));
+                        }
+                    } else {
+                        $this->warn('   ⚠️  Output is not valid JSON: ' . json_last_error_msg());
+                        $this->line('   📋 First 200 chars of output: ' . substr($output, 0, 200));
+                        $warnings[] = 'Script output is not valid JSON';
+                    }
                 }
+            } else {
+                $this->warn('   ⚠️  shell_exec is disabled; skipping script execution test');
+                $warnings[] = 'shell_exec disabled; could not run extract-mp3.js';
             }
             $this->newLine();
         }
@@ -253,7 +268,7 @@ class DiagnoseMp3Tools extends Command
                 return $path;
             }
             
-            if ($path) {
+            if ($path && function_exists('shell_exec')) {
                 $testOutput = shell_exec("{$path} --version 2>&1");
                 if ($testOutput && strpos($testOutput, 'v') === 0) {
                     return $path;
@@ -261,9 +276,11 @@ class DiagnoseMp3Tools extends Command
             }
         }
 
-        $whichNode = shell_exec('which node 2>/dev/null');
-        if ($whichNode && is_executable(trim($whichNode))) {
-            return trim($whichNode);
+        if (function_exists('shell_exec')) {
+            $whichNode = shell_exec('which node 2>/dev/null');
+            if ($whichNode && is_executable(trim($whichNode))) {
+                return trim($whichNode);
+            }
         }
 
         return null;

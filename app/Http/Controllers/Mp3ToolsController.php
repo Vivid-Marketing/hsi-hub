@@ -200,6 +200,15 @@ class Mp3ToolsController extends Controller
                 'php_error' => $phpResult['message'] ?? 'Unknown error'
             ]);
 
+            // If shell_exec is disabled in this environment, fail gracefully (Cloudways commonly disables it)
+            if (!function_exists('shell_exec')) {
+                return response()->json([
+                    'success' => false,
+                    'message' => ($phpResult['message'] ?? 'Failed to extract MP3 URL using PHP parser.')
+                        . ' (Server disallows browser-render fallback: shell_exec is disabled)'
+                ], 500);
+            }
+
             // Fallback to Node.js/Puppeteer script
             $puppeteerResult = $this->extractWithPuppeteer($url);
             
@@ -257,6 +266,8 @@ class Mp3ToolsController extends Controller
             // Fetch HTML using Guzzle
             $client = new Client([
                 'timeout' => 30,
+                'allow_redirects' => true,
+                'http_errors' => false,
                 'headers' => [
                     'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                     'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
@@ -265,6 +276,13 @@ class Mp3ToolsController extends Controller
             ]);
 
             $response = $client->get($url);
+            $statusCode = $response->getStatusCode();
+            if ($statusCode >= 400) {
+                return [
+                    'success' => false,
+                    'message' => "Failed to fetch page HTML (HTTP {$statusCode})"
+                ];
+            }
             $html = $response->getBody()->getContents();
 
             // Parse HTML with PHPHtmlParser
@@ -291,6 +309,15 @@ class Mp3ToolsController extends Controller
             }
 
             if (empty($nextDataScript) || count($nextDataScript) === 0) {
+                // Fallback: scan raw HTML for a direct audio URL (handles cases where SSR doesn't include __NEXT_DATA__)
+                $audioUrl = $this->extractAudioUrlFromHtmlFallback($html);
+                if ($audioUrl) {
+                    return [
+                        'success' => true,
+                        'audioUrl' => $audioUrl
+                    ];
+                }
+
                 return [
                     'success' => false,
                     'message' => '__NEXT_DATA__ script tag not found in HTML (may require JavaScript execution)'
@@ -324,6 +351,15 @@ class Mp3ToolsController extends Controller
 
             // Extract audio URL
             if (!isset($nextData['props']['pageProps']['episode']['audioFile']['url'])) {
+                // Fallback: search in decoded JSON string and raw HTML for an audio URL
+                $audioUrl = $this->extractAudioUrlFromNextDataFallback($nextData) ?: $this->extractAudioUrlFromHtmlFallback($html);
+                if ($audioUrl) {
+                    return [
+                        'success' => true,
+                        'audioUrl' => $audioUrl
+                    ];
+                }
+
                 return [
                     'success' => false,
                     'message' => 'Audio file URL not found in episode data structure'
@@ -473,7 +509,7 @@ class Mp3ToolsController extends Controller
             }
             
             // Try to execute and check if it works
-            if ($path) {
+            if ($path && function_exists('shell_exec')) {
                 $testOutput = shell_exec("{$path} --version 2>&1");
                 if ($testOutput && strpos($testOutput, 'v') === 0) {
                     return $path;
@@ -482,9 +518,53 @@ class Mp3ToolsController extends Controller
         }
 
         // Last resort: try 'which node' or 'whereis node'
-        $whichNode = shell_exec('which node 2>/dev/null');
-        if ($whichNode && is_executable(trim($whichNode))) {
-            return trim($whichNode);
+        if (function_exists('shell_exec')) {
+            $whichNode = shell_exec('which node 2>/dev/null');
+            if ($whichNode && is_executable(trim($whichNode))) {
+                return trim($whichNode);
+            }
+        }
+
+        return null;
+    }
+
+    private function extractAudioUrlFromNextDataFallback(array $nextData): ?string
+    {
+        try {
+            $json = json_encode($nextData);
+            if (!$json) {
+                return null;
+            }
+
+            return $this->extractAudioUrlFromHtmlFallback($json);
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function extractAudioUrlFromHtmlFallback(string $htmlOrJson): ?string
+    {
+        // Prefer mp3/m4a/wav-ish URLs; keep it conservative and return the first plausible match.
+        $patterns = [
+            // JSON or HTML containing an https URL ending in common audio extensions
+            '/https?:\\\\?\/\\\\?\/[^\s"\'<>\\\\]+?\.(?:mp3|m4a|wav)(?:\?[^\s"\'<>\\\\]*)?/i',
+            '/https?:\/\/[^\s"\'<>\\\\]+?\.(?:mp3|m4a|wav)(?:\?[^\s"\'<>\\\\]*)?/i',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $htmlOrJson, $m)) {
+                $candidate = $m[0] ?? null;
+                if (!$candidate) {
+                    continue;
+                }
+
+                // Unescape JSON-style slashes if present
+                $candidate = str_replace('\/', '/', $candidate);
+
+                if (filter_var($candidate, FILTER_VALIDATE_URL)) {
+                    return $candidate;
+                }
+            }
         }
 
         return null;
