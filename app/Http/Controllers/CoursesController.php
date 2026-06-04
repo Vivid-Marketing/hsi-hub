@@ -70,7 +70,8 @@ class CoursesController extends Controller
                 manualList: $ids,
                 feedId: $feedId,
                 doSingleBatch: true,
-                runFeedMe: $runFeedMe
+                runFeedMe: $runFeedMe,
+                vimeoIdsByLessonId: $request->parsedVimeoIdsByLessonId(),
             );
             $syncNotifier->notify($result);
         } catch (\Throwable $e) {

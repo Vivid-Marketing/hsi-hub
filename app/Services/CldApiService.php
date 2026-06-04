@@ -761,6 +761,10 @@ class CldApiService
             'courseRegulations' => $courseApiData['courseRegulations'],
         ];
 
+        if ($dbTable === 'course_api_data_singles') {
+            $row['vimeoId'] = (string) ($courseApiData['vimeoId'] ?? '');
+        }
+
         if ($this->isCourseApiRowExists($courseApiData['cldId'], $dbTable)) {
             DB::table($dbTable)->where('cldId', $courseApiData['cldId'])->update($row);
         } else {
@@ -1156,7 +1160,8 @@ class CldApiService
         int $feedId = 70,
         bool $doSingleBatch = false,
         bool $runFeedMe = true,
-        bool $includeImageAndLocaleChecks = true
+        bool $includeImageAndLocaleChecks = true,
+        array $vimeoIdsByLessonId = [],
     ): CldSyncResult {
         if ($doSingleBatch && $manualList === []) {
             return new CldSyncResult('singles', 0, 0, [], null, 'No lesson IDs provided.');
@@ -1207,6 +1212,12 @@ class CldApiService
 
                 continue;
             }
+
+            $lessonId = (int) $cldid;
+            if ($doSingleBatch && isset($vimeoIdsByLessonId[$lessonId])) {
+                $courseData['vimeoId'] = $vimeoIdsByLessonId[$lessonId];
+            }
+
             $this->insertUpdateCourseApiData($courseData, $table);
             $succeeded++;
         }

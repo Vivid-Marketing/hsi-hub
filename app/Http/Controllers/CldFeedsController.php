@@ -133,35 +133,7 @@ class CldFeedsController extends Controller
             $currentLanguage = $this->languageSlugFromLocale($row->locale ?? null);
             $affsString = $this->affiliationsToPipe($row->lessonAffiliations ?? null);
 
-            $courses[] = [
-                'title' => (string) ($row->title ?? ''),
-                'cldId' => (string) ($row->cldId ?? ''),
-                'salesLibraryTopic' => $this->encodeSpecialCharacters((string) ($row->salesLibraryTopic ?? '')),
-                'courseTopic' => $this->encodeSpecialCharacters((string) ($row->courseTopic ?? '')),
-                'collections' => (string) ($row->collections ?? ''),
-                'vendorId' => (string) ($row->vendorId ?? ''),
-                'vendorName' => (string) ($row->vendorName ?? ''),
-                'libraryId' => (string) ($row->libraryId ?? ''),
-                'libraryName' => $this->encodeSpecialCharacters((string) ($row->libraryName ?? '')),
-                'lessonId' => (string) ($row->lessonId ?? ''),
-                'ej4CourseNumber' => (string) ($row->ej4CourseNumber ?? ''),
-                'lessonModality' => (string) ($row->lessonModality ?? ''),
-                'hsiProgramID' => (string) ($row->hsiProgramID ?? ''),
-                'lessonLength' => (string) ($row->lessonLength ?? ''),
-                'locale' => (string) ($row->locale ?? ''),
-                'allLocales' => (string) ($row->allLocales ?? ''),
-                'lessonAffiliations' => $affsString,
-                'isRecommended' => (! empty($row->isRecommended) && (string) $row->isRecommended !== '0') ? 'true' : 'false',
-                'courseLanguageCategoriesSlug' => $currentLanguage.(string) ($row->courseLanguageCategoriesSlug ?? ''),
-                'pricingTier' => (string) ($row->pricingTier ?? ''),
-                'courseImageUrl' => (string) ($row->courseImageUrl ?? ''),
-                'courseImageThumbUrl' => (string) ($row->courseImageThumbUrl ?? ''),
-                'courseInformation' => $this->encodeSpecialCharacters((string) ($row->courseInformation ?? '')),
-                'marketingDescription' => $this->encodeSpecialCharacters((string) ($row->marketingDescription ?? '')),
-                'courseOutline' => $this->encodeSpecialCharacters((string) ($row->courseOutline ?? '')),
-                'courseObjectives' => $this->encodeSpecialCharacters((string) ($row->courseObjectives ?? '')),
-                'courseRegulations' => $this->encodeSpecialCharacters((string) ($row->courseRegulations ?? '')),
-            ];
+            $courses[] = $this->courseRowToFeedJson($row, $currentLanguage, $affsString, includeVimeoId: true);
         }
 
         return response()->json(
@@ -170,5 +142,47 @@ class CldFeedsController extends Controller
             ['Content-Type' => 'application/json; charset=UTF-8'],
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
         );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function courseRowToFeedJson(object $row, string $currentLanguage, string $affsString, bool $includeVimeoId = false): array
+    {
+        $course = [
+            'title' => (string) ($row->title ?? ''),
+            'cldId' => (string) ($row->cldId ?? ''),
+            'salesLibraryTopic' => $this->encodeSpecialCharacters((string) ($row->salesLibraryTopic ?? '')),
+            'courseTopic' => $this->encodeSpecialCharacters((string) ($row->courseTopic ?? '')),
+            'collections' => (string) ($row->collections ?? ''),
+            'vendorId' => (string) ($row->vendorId ?? ''),
+            'vendorName' => (string) ($row->vendorName ?? ''),
+            'libraryId' => (string) ($row->libraryId ?? ''),
+            'libraryName' => $this->encodeSpecialCharacters((string) ($row->libraryName ?? '')),
+            'lessonId' => (string) ($row->lessonId ?? ''),
+            'ej4CourseNumber' => (string) ($row->ej4CourseNumber ?? ''),
+            'lessonModality' => (string) ($row->lessonModality ?? ''),
+            'hsiProgramID' => (string) ($row->hsiProgramID ?? ''),
+            'lessonLength' => (string) ($row->lessonLength ?? ''),
+            'locale' => (string) ($row->locale ?? ''),
+            'allLocales' => (string) ($row->allLocales ?? ''),
+            'lessonAffiliations' => $affsString,
+            'isRecommended' => (! empty($row->isRecommended) && (string) $row->isRecommended !== '0') ? 'true' : 'false',
+            'courseLanguageCategoriesSlug' => $currentLanguage.(string) ($row->courseLanguageCategoriesSlug ?? ''),
+            'pricingTier' => (string) ($row->pricingTier ?? ''),
+            'courseImageUrl' => (string) ($row->courseImageUrl ?? ''),
+            'courseImageThumbUrl' => (string) ($row->courseImageThumbUrl ?? ''),
+            'courseInformation' => $this->encodeSpecialCharacters((string) ($row->courseInformation ?? '')),
+            'marketingDescription' => $this->encodeSpecialCharacters((string) ($row->marketingDescription ?? '')),
+            'courseOutline' => $this->encodeSpecialCharacters((string) ($row->courseOutline ?? '')),
+            'courseObjectives' => $this->encodeSpecialCharacters((string) ($row->courseObjectives ?? '')),
+            'courseRegulations' => $this->encodeSpecialCharacters((string) ($row->courseRegulations ?? '')),
+        ];
+
+        if ($includeVimeoId) {
+            $course['vimeoId'] = (string) ($row->vimeoId ?? '');
+        }
+
+        return $course;
     }
 }
