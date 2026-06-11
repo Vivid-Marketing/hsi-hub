@@ -30,10 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping(60)
             ->appendOutputTo(storage_path('logs/scheduler.log'));
 
-        // CLD API sync Full Feed
+        // CLD API sync Full Feed (02:00 on every 3rd day of the month: 1st, 4th, 7th, …)
         $schedule->command('cld:sync --no-feedme')
-            ->everyThreeDays()
-            ->at('02:00')
+            ->cron('0 2 */3 * *')
             ->withoutOverlapping(180)
             ->appendOutputTo(storage_path('logs/scheduler.log'));
     })
