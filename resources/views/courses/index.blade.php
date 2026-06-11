@@ -7,6 +7,21 @@
 
     <div class="py-12">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
+            <nav class="flex gap-1 border-b border-gray-200">
+                <a
+                    href="{{ route('courses.index') }}"
+                    class="border-b-2 px-4 py-2 text-sm font-medium {{ request()->routeIs('courses.index') ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}"
+                >
+                    {{ __('Manual Singles') }}
+                </a>
+                <a
+                    href="{{ route('courses.vimeo') }}"
+                    class="border-b-2 px-4 py-2 text-sm font-medium {{ request()->routeIs('courses.vimeo') ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' }}"
+                >
+                    {{ __('Vimeo') }}
+                </a>
+            </nav>
+
             @if (session('error'))
                 <div class="rounded-md bg-red-50 p-4 text-sm text-red-800 border border-red-200">
                     {{ session('error') }}

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProcessCldSinglesRequest;
 use App\Services\Cld\CldSyncNotifier;
 use App\Services\CldApiService;
+use App\Services\VimeoApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -144,6 +145,43 @@ class CoursesController extends Controller
         return redirect()
             ->route('courses.index')
             ->with('cld_sync_ui', $cldSyncUi);
+    }
+
+    /**
+     * Show the Vimeo subpage: list latest uploaded videos within a time window.
+     */
+    public function vimeo(Request $request, VimeoApiService $vimeo)
+    {
+        $period = (string) $request->query('period', 'day');
+        if (! array_key_exists($period, VimeoApiService::PERIODS)) {
+            $period = 'day';
+        }
+
+        $videos = null;
+        $error = null;
+        $fetched = $request->has('period');
+
+        if ($fetched) {
+            if (! $vimeo->isConfigured()) {
+                $error = 'Vimeo access token is not configured. Set VIMEO_ACCESS_TOKEN in .env.';
+            } else {
+                try {
+                    $videos = $vimeo->recentVideos($period);
+                } catch (\Throwable $e) {
+                    report($e);
+                    $error = 'Could not fetch videos from Vimeo: '.$e->getMessage();
+                }
+            }
+        }
+
+        return view('courses.vimeo', [
+            'period' => $period,
+            'periods' => VimeoApiService::PERIODS,
+            'videos' => $videos,
+            'fetched' => $fetched,
+            'error' => $error,
+            'configured' => $vimeo->isConfigured(),
+        ]);
     }
 
     /**

@@ -82,6 +82,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('courses.index');
     Route::post('/courses/cld/process-singles', [CoursesController::class, 'processSingles'])
         ->name('courses.process-singles');
+    Route::get('/courses/vimeo', [CoursesController::class, 'vimeo'])
+        ->middleware('permission:view-courses')
+        ->name('courses.vimeo');
     Route::get('/courses/{course}', [CoursesController::class, 'show'])
         ->middleware('permission:view-courses')
         ->name('courses.show');

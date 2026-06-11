@@ -37,4 +37,12 @@ return [
         ],
     ],
 
+    'vimeo' => [
+        // Personal access token (Authenticated, with Public + Private scopes).
+        'access_token' => env('VIMEO_ACCESS_TOKEN'),
+        'base_url' => env('VIMEO_API_BASE_URL', 'https://api.vimeo.com'),
+        // Safety cap on how many videos we'll page through per request.
+        'max_videos' => (int) env('VIMEO_MAX_VIDEOS', 500),
+    ],
+
 ];
