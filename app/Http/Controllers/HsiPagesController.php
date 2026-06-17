@@ -3,11 +3,83 @@
 namespace App\Http\Controllers;
 
 use App\Models\HsiPage;
+use App\Services\Hsi\HsiPageSearchService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class HsiPagesController extends Controller
 {
+    public function __construct(
+        private readonly HsiPageSearchService $searchService,
+    ) {
+    }
+
+    public function index(Request $request): JsonResponse
+    {
+        $perPage = max(1, min(100, (int) $request->query('per_page', 25)));
+
+        $query = HsiPage::query()->orderByDesc('last_crawled_at');
+
+        if ($request->filled('crawl_status')) {
+            $query->where('crawl_status', (string) $request->query('crawl_status'));
+        }
+
+        if ($request->filled('source_group')) {
+            $query->where('source_group', (string) $request->query('source_group'));
+        }
+
+        if ($request->filled('page_type')) {
+            $query->where('page_type', (string) $request->query('page_type'));
+        }
+
+        $pages = $query->paginate($perPage, [
+            'id',
+            'title',
+            'canonical_url',
+            'fetched_url',
+            'dedupe_key',
+            'source_group',
+            'page_type',
+            'crawl_status',
+            'http_status',
+            'content_hash',
+            'last_crawled_at',
+            'last_error',
+        ]);
+
+        return response()->json([
+            'ok' => true,
+            'data' => $pages->items(),
+            'meta' => [
+                'current_page' => $pages->currentPage(),
+                'per_page' => $pages->perPage(),
+                'total' => $pages->total(),
+                'last_page' => $pages->lastPage(),
+            ],
+        ]);
+    }
+
+    public function show(Request $request, int $id): JsonResponse
+    {
+        $page = HsiPage::query()->find($id);
+        if ($page === null) {
+            return response()->json([
+                'ok' => false,
+                'error' => 'Page not found',
+            ], 404);
+        }
+
+        $data = $page->toArray();
+        if (! $request->boolean('include_raw_html')) {
+            unset($data['raw_html']);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'data' => $data,
+        ]);
+    }
+
     public function search(Request $request): JsonResponse
     {
         $q = trim((string) $request->query('q', ''));
@@ -18,49 +90,16 @@ class HsiPagesController extends Controller
             ], 422);
         }
 
-        $limit = (int) $request->query('limit', 10);
-        $limit = max(1, min(50, $limit));
+        $limit = max(1, min(50, (int) $request->query('limit', 10)));
 
-        $rows = HsiPage::query()
-            ->where('crawl_status', '!=', 'error')
-            ->where(function ($query) use ($q) {
-                $like = '%'.$q.'%';
-                $query
-                    ->where('title', 'like', $like)
-                    ->orWhere('meta_description', 'like', $like)
-                    ->orWhere('body_text', 'like', $like)
-                    ->orWhere('canonical_url', 'like', $like);
-            })
-            ->orderByDesc('last_crawled_at')
-            ->limit($limit)
-            ->get([
-                'id',
-                'title',
-                'meta_description',
-                'canonical_url',
-                'fetched_url',
-                'dedupe_key',
-                'crawl_status',
-                'http_status',
-                'last_crawled_at',
-                'body_text',
-            ]);
+        $ranked = $this->searchService->ranked($q)->take($limit);
 
-        $results = $rows->map(function (HsiPage $p) use ($q) {
-            $url = $p->canonical_url ?: ($p->fetched_url ?: $p->dedupe_key);
-            $snippet = $this->makeSnippet((string) ($p->body_text ?? ''), $q);
-
-            return [
-                'id' => $p->id,
-                'title' => $p->title,
-                'meta_description' => $p->meta_description,
-                'url' => $url,
-                'crawl_status' => $p->crawl_status,
-                'http_status' => $p->http_status,
-                'last_crawled_at' => optional($p->last_crawled_at)->toIso8601String(),
-                'snippet' => $snippet,
-            ];
-        })->values();
+        $results = $ranked->map(fn (array $row) => $this->searchService->toSearchResult(
+            $row['page'],
+            $q,
+            $row['score'],
+            $row['matches'],
+        ))->values();
 
         return response()->json([
             'ok' => true,
@@ -70,21 +109,31 @@ class HsiPagesController extends Controller
         ]);
     }
 
-    private function makeSnippet(string $body, string $q): ?string
+    public function retrieve(Request $request): JsonResponse
     {
-        $body = trim($body);
-        if ($body === '') {
-            return null;
+        $q = trim((string) $request->query('q', ''));
+        if ($q === '') {
+            return response()->json([
+                'ok' => false,
+                'error' => 'Missing query parameter: q',
+            ], 422);
         }
 
-        $pos = stripos($body, $q);
-        if ($pos === false) {
-            return mb_substr($body, 0, 240);
-        }
+        $limit = max(1, min(10, (int) $request->query('limit', 5)));
 
-        $start = max(0, $pos - 80);
-        $snippet = mb_substr($body, $start, 240);
-        return $snippet;
+        $ranked = $this->searchService->ranked($q)->take($limit);
+
+        $blocks = $ranked->map(fn (array $row) => $this->searchService->toContextBlock(
+            $row['page'],
+            $q,
+            $row['score'],
+        ))->values();
+
+        return response()->json([
+            'ok' => true,
+            'q' => $q,
+            'count' => $blocks->count(),
+            'context_blocks' => $blocks,
+        ]);
     }
 }
-

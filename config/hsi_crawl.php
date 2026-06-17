@@ -13,6 +13,34 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Source group defaults (Phase 3)
+    |--------------------------------------------------------------------------
+    |
+    | source_group values: main_nav, footer, resource, landing_page
+    |
+    */
+    'source_group_default' => 'main_nav',
+
+    'source_groups' => [
+        '/' => 'landing_page',
+        '/resources' => 'resource',
+        '/blog' => 'resource',
+        '/news' => 'resource',
+        '/podcast/accidentalSafetyPro' => 'resource',
+        '/resources/case-study' => 'resource',
+        '/resources/white-paper' => 'resource',
+        '/resources/webinar' => 'resource',
+        '/resources/safety-tip' => 'resource',
+        '/resources/supervisor-safety-tip' => 'resource',
+        '/resources/checklist-template-toolkit' => 'resource',
+        '/resources/guides' => 'resource',
+        '/elearning-pricing' => 'footer',
+        '/privacy' => 'footer',
+        '/terms' => 'footer',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Seed URLs (Phase 1)
     |--------------------------------------------------------------------------
     |

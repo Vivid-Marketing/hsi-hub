@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\HsiPage;
+use App\Services\Hsi\HsiPageClassifier;
 use App\Services\Hsi\HsiPageCrawler;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -29,7 +30,7 @@ class HsiCrawlPages extends Command
     /**
      * Execute the console command.
      */
-    public function handle(HsiPageCrawler $crawler): int
+    public function handle(HsiPageCrawler $crawler, HsiPageClassifier $classifier): int
     {
         $seedUrls = (array) config('hsi_crawl.seed_urls', []);
         $override = (array) $this->option('url');
@@ -84,10 +85,14 @@ class HsiCrawlPages extends Command
             $newHash = $data['content_hash'] ?? null;
             $changed = $existing === null || ($newHash !== null && $existing->content_hash !== $newHash);
 
+            $pageUrl = $data['canonical_url'] ?: ($data['fetched_url'] ?: $url);
+
             $update = [
                 'seed_url' => $data['seed_url'],
                 'fetched_url' => $data['fetched_url'],
                 'canonical_url' => $data['canonical_url'],
+                'source_group' => $classifier->sourceGroupForSeedPath($url),
+                'page_type' => $classifier->pageTypeForUrl($pageUrl),
                 'title' => $data['title'],
                 'meta_description' => $data['meta_description'],
                 'h1s' => $data['h1s'],

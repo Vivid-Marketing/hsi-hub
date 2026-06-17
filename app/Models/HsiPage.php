@@ -14,10 +14,15 @@ class HsiPage extends Model
         'canonical_url',
         'dedupe_key',
         'content_hash',
+        'source_group',
+        'page_type',
         'title',
         'meta_description',
         'h1s',
         'h2s',
+        'ai_summary',
+        'search_keywords',
+        'primary_topics',
         'body_text',
         'raw_html',
         'http_status',
@@ -31,6 +36,8 @@ class HsiPage extends Model
     protected $casts = [
         'h1s' => 'array',
         'h2s' => 'array',
+        'search_keywords' => 'array',
+        'primary_topics' => 'array',
         'last_crawled_at' => 'datetime',
     ];
 }
