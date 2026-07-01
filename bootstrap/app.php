@@ -30,6 +30,12 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping(60)
             ->appendOutputTo(storage_path('logs/scheduler.log'));
 
+        // Re-embed Algolia course + blog/news records weekly (Sunday 03:00)
+        $schedule->command('hsi:embed-algolia')
+            ->weeklyOn(0, '3:00')
+            ->withoutOverlapping(120)
+            ->appendOutputTo(storage_path('logs/scheduler.log'));
+
         // CLD API sync Full Feed (02:00 on every 3rd day of the month: 1st, 4th, 7th, …)
         $schedule->command('cld:sync')
             ->cron('0 2 */3 * *')
@@ -46,6 +52,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'internal.signature' => \App\Http\Middleware\VerifyInternalRequestSignature::class,
             'surveys-pdf.signature' => \App\Http\Middleware\VerifySurveysPdfRequestSignature::class,
             'training-assessment-pdf.cors' => \App\Http\Middleware\TrainingAssessmentPdfCors::class,
+            'hsi-ai.cors' => \App\Http\Middleware\HsiAiCors::class,
             'cron.token' => \App\Http\Middleware\VerifyCronToken::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,

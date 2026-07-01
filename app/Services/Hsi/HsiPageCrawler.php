@@ -229,19 +229,12 @@ class HsiPageCrawler
     {
         $root = null;
 
-        try {
-            $main = $dom->find('main');
-            if (!empty($main) && count($main) > 0) {
-                $root = $main[0];
-            }
-        } catch (\Throwable) {
-        }
-
-        if ($root === null) {
+        foreach (['main', '#main', 'body'] as $selector) {
             try {
-                $body = $dom->find('body');
-                if (!empty($body) && count($body) > 0) {
-                    $root = $body[0];
+                $nodes = $dom->find($selector);
+                if (! empty($nodes) && count($nodes) > 0) {
+                    $root = $nodes[0];
+                    break;
                 }
             } catch (\Throwable) {
             }
@@ -265,19 +258,31 @@ class HsiPageCrawler
             }
         }
 
-        $text = '';
-        try {
-            $text = (string) $root->text;
-        } catch (\Throwable) {
-            return null;
-        }
-
+        $text = $this->nodeText($root);
         $text = $this->normalizeWhitespace($text);
-        if ($text === '') {
-            return null;
+
+        return $text !== '' ? $text : null;
+    }
+
+    private function nodeText(mixed $node): string
+    {
+        try {
+            $text = trim((string) $node->text);
+            if ($text !== '') {
+                return $text;
+            }
+        } catch (\Throwable) {
         }
 
-        return $text;
+        try {
+            $html = (string) $node->innerHtml;
+            if ($html !== '') {
+                return trim(html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5));
+            }
+        } catch (\Throwable) {
+        }
+
+        return '';
     }
 
     private function makeDedupeKey(?string $canonicalUrl, string $fetchedUrl): string

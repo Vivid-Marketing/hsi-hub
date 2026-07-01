@@ -167,6 +167,72 @@ class CldApiService
         return $this->doCurlGetRequest($this->baseUrl.'/api/catalog/'.$cldid, $token);
     }
 
+    /**
+     * Full catalog export (all courses). Response is large (~80MB+ JSON).
+     *
+     * @return list<array<string, mixed>>|null
+     */
+    public function getAllCatalogCourses(string $token): ?array
+    {
+        try {
+            $response = Http::withToken($token)
+                ->withHeaders(['Content-Type' => 'application/json'])
+                ->connectTimeout(30)
+                ->timeout(600)
+                ->retry(2, 1000)
+                ->get($this->baseUrl.'/api/catalog');
+        } catch (\Throwable $e) {
+            Log::error('CLD API catalog export failed', ['error' => $e->getMessage()]);
+
+            return null;
+        }
+
+        if (! $response->successful()) {
+            Log::error('CLD API catalog export failed', ['status' => $response->status()]);
+
+            return null;
+        }
+
+        $data = $response->json();
+        if (! is_array($data)) {
+            return null;
+        }
+
+        return array_is_list($data) ? $data : [$data];
+    }
+
+    public const EMEA_WEB_CATALOG_AFFILIATION = 'Populates EMEA Web Catalog';
+
+    /**
+     * @param  array<string, mixed>  $course
+     */
+    public function courseHasEmeaWebCatalogAffiliation(array $course): bool
+    {
+        foreach ($course['LessonAffiliations'] ?? [] as $affiliation) {
+            if (! is_array($affiliation)) {
+                continue;
+            }
+            if (($affiliation['Description'] ?? '') === self::EMEA_WEB_CATALOG_AFFILIATION) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string, mixed>  $course
+     * @return array{LessonName: mixed, LessonID: mixed, LessonAffiliations: mixed}
+     */
+    public function courseToEmeaExportRow(array $course): array
+    {
+        return [
+            'LessonName' => $course['LessonName'] ?? null,
+            'LessonID' => $course['LessonID'] ?? null,
+            'LessonAffiliations' => $course['LessonAffiliations'] ?? [],
+        ];
+    }
+
     public function getCourseOutline($cldid, string $token): ?array
     {
         return $this->doCurlGetRequest($this->baseUrl.'/api/LessonSection?text='.$cldid, $token);

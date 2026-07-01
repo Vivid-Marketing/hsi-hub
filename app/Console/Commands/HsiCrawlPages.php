@@ -107,7 +107,7 @@ class HsiCrawlPages extends Command
                 'last_crawled_at' => Carbon::now(),
             ];
 
-            if ($changed) {
+            if ($changed || ($data['body_text'] && trim((string) ($existing->body_text ?? '')) === '')) {
                 $update['body_text'] = $data['body_text'];
                 $update['raw_html'] = $data['raw_html'];
             }

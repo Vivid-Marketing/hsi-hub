@@ -47,28 +47,72 @@ Phase 3: AI-ready retrieval layer:
    Returns compact context blocks, not raw full pages
 
 
+Phase 4: Unified keyword search (Keyword tab)
 
-Phase 4
+1. Internal cache (Laravel) for static pages
+2. Algolia indexes for Courses, Blog, News
+3. GET /api/hsi/search?q= merges both sources
 
-1. Your internal cache (Laravel)
 
-Static pages (About, Resources, etc.)
-Clean, structured, controllable
+Phase 5: Semantic Q&A (default search modal tab)
 
-2. Algolia indexes
+Architecture (hybrid — do NOT re-embed Algolia for MVP):
 
-Courses (dynamic, high intent)
-Blog/News (content-heavy, SEO-driven)
+Client search modal
+  ├── Tab 1 (default): AI Q&A → POST /api/hsi/ask { q }
+  └── Tab 2: Keyword search → GET /api/hsi/search?q=
 
-Arhcitecture
+Ask flow:
+1. Embed user question (Ollama: nomic-embed-text)
+2. Vector search local page chunks (hsi_chunks table)
+3. Algolia search at query time (courses, blog, news) — use hits as context, no duplicate embedding pipeline
+4. Merge context blocks
+5. Ollama chat model generates grounded answer + source links
+
+Static pages:
+- php artisan hsi:crawl-pages
+- php artisan hsi:embed-pages
+
+Tables:
+- hsi_pages (crawl cache)
+- hsi_chunks (chunk text + embedding JSON)
+
+Config:
+- config/hsi_ai.php (Ollama + Algolia + chunk settings)
+
+Endpoints:
+- POST /api/hsi/ask?q= or { "q": "..." }
+- GET /api/hsi/search?q= (keyword tab)
+
+Env:
+- OLLAMA_BASE_URL, OLLAMA_EMBED_MODEL, OLLAMA_CHAT_MODEL
+- ALGOLIA_APP_ID, ALGOLIA_SEARCH_API_KEY
+- ALGOLIA_INDEX_COURSES, ALGOLIA_INDEX_BLOG, ALGOLIA_INDEX_NEWS
+
+Frontend (hsi.com):
+- Modal defaults to AI tab
+- Show answer + source link cards (pages + courses + blog/news)
+- Keyword tab calls /api/hsi/search
+
+Later (optional):
+- Stream answers from Ollama
+- Conversation history
+- Re-embed Algolia into vectors only if query-time Algolia context is insufficient
+- pgvector / dedicated vector DB if chunk count grows large
+- Production LLM (OpenAI/Anthropic) instead of Ollama
+
+
+Architecture
 
 Client (UI / AI search)
         ↓
-/api/hsi/search?q=
+POST /api/hsi/ask  |  GET /api/hsi/search
         ↓
-Search Aggregator (Laravel)
-   ↙           ↘
-HsiPages     Algolia
-(DB)         (Courses + Blog)
+Laravel Hub
+   ↙         ↓           ↘
+Vector      Algolia      Keyword
+(chunks)    (query-time) (pages DB)
         ↓
-Merged + Ranked Results
+     Ollama LLM
+        ↓
+Answer + source links
