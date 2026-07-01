@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\CldApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 
 class CldFeedsController extends Controller
 {
@@ -111,6 +113,30 @@ class CldFeedsController extends Controller
             200,
             ['Content-Type' => 'application/json; charset=UTF-8'],
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+    }
+
+    /**
+     * EMEA Web Catalog feed (temp public endpoint, no passkey).
+     * Serves cached JSON from storage; use ?refresh=1 to rebuild from CLD API.
+     */
+    public function emea(Request $request, CldApiService $cldApi)
+    {
+        $path = $cldApi->emeaCoursesExportPath();
+
+        if ($request->boolean('refresh') || ! File::exists($path)) {
+            ini_set('memory_limit', '2G');
+
+            $count = $cldApi->writeEmeaCoursesExport($path);
+            if ($count === null) {
+                abort(503, 'Failed to fetch EMEA courses from CLD API.');
+            }
+        }
+
+        return response(
+            File::get($path),
+            200,
+            ['Content-Type' => 'application/json; charset=UTF-8']
         );
     }
 

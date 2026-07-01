@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('feeds/cld')->group(function () {
     Route::get('/courses', [CldFeedsController::class, 'courses'])->name('feeds.cld.courses');
     Route::get('/courses/singles', [CldFeedsController::class, 'singles'])->name('feeds.cld.courses.singles');
+    Route::get('/courses/emea', [CldFeedsController::class, 'emea'])->name('feeds.cld.courses.emea');
 });
 
 // Internal endpoint for Course Catalog PDF batch ingestion (signed request).

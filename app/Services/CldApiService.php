@@ -6,6 +6,7 @@ use App\Services\Cld\CldSyncResult;
 use Aws\S3\S3Client;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -231,6 +232,66 @@ class CldApiService
             'LessonID' => $course['LessonID'] ?? null,
             'LessonAffiliations' => $course['LessonAffiliations'] ?? [],
         ];
+    }
+
+    public function emeaCoursesExportPath(): string
+    {
+        return storage_path('app/cld-api/emea-courses.json');
+    }
+
+    /**
+     * @return list<array{LessonName: mixed, LessonID: mixed, LessonAffiliations: mixed}>|null
+     */
+    public function buildEmeaCoursesExport(): ?array
+    {
+        $token = $this->getBearerToken();
+        $courses = $this->getAllCatalogCourses($token);
+        if ($courses === null) {
+            return null;
+        }
+
+        $emeaCourses = [];
+        foreach ($courses as $course) {
+            if (! is_array($course) || ! $this->courseHasEmeaWebCatalogAffiliation($course)) {
+                continue;
+            }
+
+            $emeaCourses[] = $this->courseToEmeaExportRow($course);
+        }
+
+        usort($emeaCourses, static fn (array $a, array $b) => ($a['LessonID'] ?? 0) <=> ($b['LessonID'] ?? 0));
+
+        return $emeaCourses;
+    }
+
+    /**
+     * @return int|null Number of courses written, or null on failure.
+     */
+    public function writeEmeaCoursesExport(?string $path = null): ?int
+    {
+        $emeaCourses = $this->buildEmeaCoursesExport();
+        if ($emeaCourses === null) {
+            return null;
+        }
+
+        $path = $path ?? $this->emeaCoursesExportPath();
+        $directory = dirname($path);
+        if (! File::isDirectory($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        $json = json_encode(
+            $emeaCourses,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+
+        if ($json === false) {
+            return null;
+        }
+
+        File::put($path, $json);
+
+        return count($emeaCourses);
     }
 
     public function getCourseOutline($cldid, string $token): ?array

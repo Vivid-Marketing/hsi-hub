@@ -4,7 +4,6 @@ namespace App\Console\Commands;
 
 use App\Services\CldApiService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\File;
 
 class CldExportEmeaCourses extends Command
 {
@@ -17,53 +16,19 @@ class CldExportEmeaCourses extends Command
     {
         ini_set('memory_limit', '2G');
 
-        $outputPath = $this->option('output')
-            ?: storage_path('app/cld-api/emea-courses.json');
+        $outputPath = $this->option('output') ?: $cldApi->emeaCoursesExportPath();
 
         $this->info('Fetching full CLD catalog from API (this may take a minute)...');
 
-        $token = $cldApi->getBearerToken();
-        $courses = $cldApi->getAllCatalogCourses($token);
+        $count = $cldApi->writeEmeaCoursesExport($outputPath);
 
-        if ($courses === null) {
-            $this->error('Failed to fetch catalog from CLD API.');
-
-            return self::FAILURE;
-        }
-
-        $total = count($courses);
-        $this->info("Fetched {$total} courses. Filtering for EMEA Web Catalog affiliation...");
-
-        $emeaCourses = [];
-        foreach ($courses as $course) {
-            if (! is_array($course) || ! $cldApi->courseHasEmeaWebCatalogAffiliation($course)) {
-                continue;
-            }
-
-            $emeaCourses[] = $cldApi->courseToEmeaExportRow($course);
-        }
-
-        usort($emeaCourses, static fn (array $a, array $b) => ($a['LessonID'] ?? 0) <=> ($b['LessonID'] ?? 0));
-
-        $directory = dirname($outputPath);
-        if (! File::isDirectory($directory)) {
-            File::makeDirectory($directory, 0755, true);
-        }
-
-        $json = json_encode(
-            $emeaCourses,
-            JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
-        );
-
-        if ($json === false) {
-            $this->error('Failed to encode EMEA courses as JSON.');
+        if ($count === null) {
+            $this->error('Failed to export EMEA courses from CLD API.');
 
             return self::FAILURE;
         }
 
-        File::put($outputPath, $json);
-
-        $this->info('EMEA courses exported: '.count($emeaCourses));
+        $this->info("EMEA courses exported: {$count}");
         $this->info("Written to: {$outputPath}");
 
         return self::SUCCESS;
