@@ -25,11 +25,12 @@ class CourseCatalogPdfBuilder
             'courseCompletions',
             'courseImage',
             'objectID',
+            'collections',
             '_highlightResult',
             '__position',
         ];
 
-        $finalByLibrary = []; // library => topic => subTopic => [courses]
+        $finalByTopic = []; // topic (Library) => subTopic => [courses]
 
         foreach ($rawCourses as $item) {
             if (! is_array($item)) {
@@ -58,48 +59,34 @@ class CourseCatalogPdfBuilder
                 $item['title'] = str_replace('&', 'and', (string) $item['title']);
             }
 
-            $libraries = $this->extractLibraries($item);
-            if (empty($libraries)) {
-                $libraries = ['_No Library_'];
-            }
-
             $topic = (string) $item['topic'];
             $subTopic = (string) ($item['singleSubTopic'] ?? 'Uncategorized');
 
-            foreach ($libraries as $libraryName) {
-                $finalByLibrary[$libraryName][$topic][$subTopic][] = $item;
-            }
+            $finalByTopic[$topic][$subTopic][] = $item;
         }
 
-        foreach ($finalByLibrary as &$topics) {
-            ksort($topics, SORT_NATURAL | SORT_FLAG_CASE);
-            foreach ($topics as &$subTopics) {
-                ksort($subTopics, SORT_NATURAL | SORT_FLAG_CASE);
-                foreach ($subTopics as &$items) {
-                    usort($items, fn ($a, $b) => strcmp((string) ($a['title'] ?? ''), (string) ($b['title'] ?? '')));
-                }
+        ksort($finalByTopic, SORT_NATURAL | SORT_FLAG_CASE);
+        foreach ($finalByTopic as &$subTopics) {
+            ksort($subTopics, SORT_NATURAL | SORT_FLAG_CASE);
+            foreach ($subTopics as &$items) {
+                usort($items, fn ($a, $b) => strcmp((string) ($a['title'] ?? ''), (string) ($b['title'] ?? '')));
             }
+            unset($items);
         }
+        unset($subTopics);
 
         $librariesList = [];
-        foreach ($finalByLibrary as $libraryName => $topics) {
-            $topicList = [];
-            foreach ($topics as $topicName => $subTopics) {
-                $subTopicList = [];
-                foreach ($subTopics as $subTopicName => $items) {
-                    $subTopicList[] = [
-                        'subTopic' => $subTopicName,
-                        'subCourses' => $items,
-                    ];
-                }
-                $topicList[] = [
-                    'topic' => $topicName,
-                    'subTopics' => $subTopicList,
+        foreach ($finalByTopic as $topicName => $subTopics) {
+            $subTopicList = [];
+            foreach ($subTopics as $subTopicName => $items) {
+                $subTopicList[] = [
+                    'subTopic' => $subTopicName,
+                    'subCourses' => $items,
                 ];
             }
             $librariesList[] = [
-                'library' => $libraryName,
-                'topics' => $topicList,
+                'topic' => $topicName,
+                'subTopics' => $subTopicList,
             ];
         }
 
@@ -187,16 +174,15 @@ class CourseCatalogPdfBuilder
     {
         $finalHtml = '';
 
-        foreach ($coursesArray as $library) {
-            foreach (($library['topics'] ?? []) as $topic) {
-                $finalHtml .= '<div style="background-color: #003f6f; width: 100%; padding: 10px 0; text-align: left;" class="main-category">'
-                    .'<h2 style="color: white; font-size: 14pt; font-weight: bold; margin: 0; text-align: left; padding-left: 10px;">'
-                    .htmlspecialchars((string) ($topic['topic'] ?? ''))
-                    .'</h2></div>';
+        foreach ($coursesArray as $topic) {
+            $finalHtml .= '<div style="background-color: #003f6f; width: 100%; padding: 10px 0; text-align: left;" class="main-category">'
+                .'<h2 style="color: white; font-size: 14pt; font-weight: bold; margin: 0; text-align: left; padding-left: 10px;">'
+                .htmlspecialchars((string) ($topic['topic'] ?? ''))
+                .'</h2></div>';
 
-                foreach (($topic['subTopics'] ?? []) as $sub) {
-                    $thStyle = 'background-color: #5fc2ff; font-size: 10pt; font-weight: bold; color: black; padding: 8px; text-align: left;';
-                    $finalHtml .= '<table style="width: 100%; border-collapse: collapse;" class="sub-topic-table">
+            foreach (($topic['subTopics'] ?? []) as $sub) {
+                $thStyle = 'background-color: #5fc2ff; font-size: 10pt; font-weight: bold; color: black; padding: 8px; text-align: left;';
+                $finalHtml .= '<table style="width: 100%; border-collapse: collapse;" class="sub-topic-table">
                     <thead>
                         <tr>
                             <th style="'.$thStyle.' width: 70%;">'.htmlspecialchars((string) ($sub['subTopic'] ?? '')).'</th>
@@ -207,23 +193,22 @@ class CourseCatalogPdfBuilder
                     </thead>
                 </table>';
 
-                    $subCourses = $sub['subCourses'] ?? [];
-                    if (! empty($subCourses) && is_array($subCourses)) {
-                        $finalHtml .= '<table style="width: 100%; border-collapse: collapse;" class="inner-table">';
-                        foreach ($subCourses as $course) {
-                            if (! is_array($course)) {
-                                continue;
-                            }
-                            $tdStyle = 'background-color: white; font-size: 9pt; color: black; font-weight: normal; padding: 8px; text-align: left;';
-                            $finalHtml .= '<tr>
+                $subCourses = $sub['subCourses'] ?? [];
+                if (! empty($subCourses) && is_array($subCourses)) {
+                    $finalHtml .= '<table style="width: 100%; border-collapse: collapse;" class="inner-table">';
+                    foreach ($subCourses as $course) {
+                        if (! is_array($course)) {
+                            continue;
+                        }
+                        $tdStyle = 'background-color: white; font-size: 9pt; color: black; font-weight: normal; padding: 8px; text-align: left;';
+                        $finalHtml .= '<tr>
                             <td style="'.$tdStyle.' width: 70%;">'.htmlspecialchars((string) ($course['title'] ?? '')).'</td>
                             <td style="'.$tdStyle.' width: 10%;">'.htmlspecialchars((string) ($course['cldID'] ?? '')).'</td>
                             <td style="'.$tdStyle.' width: 10%;">'.htmlspecialchars((string) ($course['courseLength'] ?? '')).'</td>
                             <td style="'.$tdStyle.' width: 10%;">'.htmlspecialchars((string) ($course['courseLanguages'] ?? '')).'</td>
                         </tr>';
-                        }
-                        $finalHtml .= '</table>';
                     }
+                    $finalHtml .= '</table>';
                 }
             }
         }
@@ -367,27 +352,6 @@ td {
         $normalized = ucfirst(strtolower(trim($languageName)));
 
         return $languageMap[$normalized] ?? null;
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function extractLibraries(array $item): array
-    {
-        if (! isset($item['collections']) || empty($item['collections'])) {
-            return [];
-        }
-
-        $names = [];
-        foreach ((array) $item['collections'] as $c) {
-            if (is_array($c) && isset($c['name'])) {
-                $names[] = (string) $c['name'];
-            } elseif (is_string($c)) {
-                $names[] = $c;
-            }
-        }
-
-        return array_values(array_unique(array_filter(array_map('trim', $names))));
     }
 }
 
