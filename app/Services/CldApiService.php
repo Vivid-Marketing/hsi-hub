@@ -294,6 +294,345 @@ class CldApiService
         return count($emeaCourses);
     }
 
+    /**
+     * Craft course entries export used to scope backfill feeds to live site courses.
+     */
+    public function craftCoursesExportPath(): string
+    {
+        $configured = config('cld_api.backfill.craft_courses_export');
+
+        if (is_string($configured) && $configured !== '') {
+            return $configured;
+        }
+
+        return base_path('private/courses-latest-entries-aug-10-2026.json');
+    }
+
+    public function longFieldDescriptionBackfillExportPath(): string
+    {
+        return storage_path('app/cld-api/backfill-long-field-description.json');
+    }
+
+    public function courseOutlineBackfillExportPath(): string
+    {
+        return storage_path('app/cld-api/backfill-course-outline.json');
+    }
+
+    /**
+     * Enabled Craft course rows with a cldId, for backfill feeds.
+     *
+     * @return list<array{cldId: string, LessonID: int, LessonName: string}>
+     */
+    public function enabledCraftCoursesForBackfill(?string $path = null): array
+    {
+        $path = $path ?? $this->craftCoursesExportPath();
+        if (! File::exists($path)) {
+            Log::error('Craft courses export not found for backfill', ['path' => $path]);
+
+            return [];
+        }
+
+        $entries = json_decode(File::get($path), true);
+        if (! is_array($entries)) {
+            Log::error('Craft courses export is not valid JSON', ['path' => $path]);
+
+            return [];
+        }
+
+        $byLessonId = [];
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+
+            if ((int) ($entry['enabled'] ?? 0) !== 1) {
+                continue;
+            }
+
+            $cldId = $entry['field_cldId_rvrfmlyu'] ?? null;
+            if (! is_string($cldId) && ! is_numeric($cldId)) {
+                continue;
+            }
+
+            $cldId = trim((string) $cldId);
+            if ($cldId === '') {
+                continue;
+            }
+
+            $numericId = preg_replace('/^CLD-/i', '', $cldId);
+            if ($numericId === null || $numericId === '' || ! ctype_digit($numericId)) {
+                continue;
+            }
+
+            $lessonId = (int) $numericId;
+            $byLessonId[$lessonId] = [
+                'cldId' => 'CLD-'.$lessonId,
+                'LessonID' => $lessonId,
+                'LessonName' => trim((string) ($entry['title'] ?? '')),
+            ];
+        }
+
+        $courses = array_values($byLessonId);
+        usort($courses, static fn (array $a, array $b) => $a['LessonID'] <=> $b['LessonID']);
+
+        return $courses;
+    }
+
+    /**
+     * Lesson IDs from Craft course export: enabled=1 and non-empty field_cldId_rvrfmlyu.
+     *
+     * @return list<int>
+     */
+    public function lessonIdsFromCraftCoursesExport(?string $path = null): array
+    {
+        return array_map(
+            static fn (array $course) => $course['LessonID'],
+            $this->enabledCraftCoursesForBackfill($path)
+        );
+    }
+
+    /**
+     * Turn LessonSection API rows into a Feed Me-friendly pipe-delimited string.
+     * Pipes inside section names are normalized so they are not treated as delimiters.
+     *
+     * @param  list<array<string, mixed>>|array<string, mixed>|null  $courseOutline
+     */
+    public function formatCourseOutlineAsPipe(?array $courseOutline, int|string|null $lessonId = null): string
+    {
+        if (! is_array($courseOutline) || $courseOutline === []) {
+            return '';
+        }
+
+        // Single-object responses are uncommon, but normalize to a list.
+        if (isset($courseOutline['SectionName'])) {
+            $courseOutline = [$courseOutline];
+        }
+
+        $expectedLessonId = $lessonId !== null && $lessonId !== '' ? (int) $lessonId : null;
+
+        $sections = [];
+        foreach ($courseOutline as $outline) {
+            if (! is_array($outline)) {
+                continue;
+            }
+
+            if ($expectedLessonId !== null && (int) ($outline['LessonID'] ?? 0) !== $expectedLessonId) {
+                continue;
+            }
+
+            $sectionName = $outline['SectionName'] ?? '';
+            if (! is_string($sectionName) && ! is_numeric($sectionName)) {
+                continue;
+            }
+
+            $sectionName = (string) $sectionName;
+            if ($sectionName === '' || strlen($sectionName) !== mb_strlen($sectionName, 'utf-8')) {
+                continue;
+            }
+
+            if ((int) ($outline['LocaleID'] ?? 0) !== 1) {
+                continue;
+            }
+
+            $sectionName = $this->convertSpecialChar($sectionName);
+            // Keep `|` as the item delimiter only; neutralize it inside labels.
+            $sectionName = trim(str_replace('|', ' - ', $sectionName));
+            $sectionName = preg_replace('/\s+/u', ' ', $sectionName) ?? $sectionName;
+            $sectionName = trim($sectionName);
+
+            if ($sectionName !== '') {
+                $sections[] = $sectionName;
+            }
+        }
+
+        return implode('|', $sections);
+    }
+
+    /**
+     * @param  array<string, mixed>  $course
+     * @return array{cldId: string, LessonName: mixed, LessonID: mixed, GEODescription: string}
+     */
+    public function courseToLongFieldDescriptionBackfillRow(array $course): array
+    {
+        $lessonId = $course['LessonID'] ?? null;
+        $geoDescription = $course['GEODescription'] ?? '';
+        if (! is_scalar($geoDescription) && $geoDescription !== null) {
+            $geoDescription = '';
+        }
+
+        return [
+            'cldId' => $lessonId !== null && $lessonId !== '' ? 'CLD-'.$lessonId : '',
+            'LessonName' => $course['LessonName'] ?? null,
+            'LessonID' => $lessonId,
+            'GEODescription' => trim((string) $geoDescription),
+        ];
+    }
+
+    /**
+     * Build backfill feed for Craft longFieldDescription from CLD GEODescription.
+     * Uses one full catalog fetch, then filters to lesson IDs present in the Craft export
+     * (equivalent to /api/catalog/{id} for each enabled Craft course, without N+1 calls).
+     *
+     * @return list<array{cldId: string, LessonName: mixed, LessonID: mixed, GEODescription: string}>|null
+     */
+    public function buildLongFieldDescriptionBackfillExport(?string $craftExportPath = null): ?array
+    {
+        $lessonIds = $this->lessonIdsFromCraftCoursesExport($craftExportPath);
+        if ($lessonIds === []) {
+            Log::error('No enabled Craft courses with cldId found for longFieldDescription backfill');
+
+            return null;
+        }
+
+        $allowed = array_fill_keys($lessonIds, true);
+
+        $token = $this->getBearerToken();
+        $courses = $this->getAllCatalogCourses($token);
+        if ($courses === null) {
+            return null;
+        }
+
+        $rows = [];
+        foreach ($courses as $course) {
+            if (! is_array($course)) {
+                continue;
+            }
+
+            $lessonId = $course['LessonID'] ?? null;
+            if ($lessonId === null || $lessonId === '' || ! isset($allowed[(int) $lessonId])) {
+                continue;
+            }
+
+            $rows[] = $this->courseToLongFieldDescriptionBackfillRow($course);
+        }
+
+        usort($rows, static fn (array $a, array $b) => ($a['LessonID'] ?? 0) <=> ($b['LessonID'] ?? 0));
+
+        return $rows;
+    }
+
+    /**
+     * @return int|null Number of courses written, or null on failure.
+     */
+    public function writeLongFieldDescriptionBackfillExport(?string $path = null, ?string $craftExportPath = null): ?int
+    {
+        $rows = $this->buildLongFieldDescriptionBackfillExport($craftExportPath);
+        if ($rows === null) {
+            return null;
+        }
+
+        $path = $path ?? $this->longFieldDescriptionBackfillExportPath();
+        $directory = dirname($path);
+        if (! File::isDirectory($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        $json = json_encode(
+            $rows,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+
+        if ($json === false) {
+            return null;
+        }
+
+        File::put($path, $json);
+
+        return count($rows);
+    }
+
+    /**
+     * Build courseOutline backfill rows (pipe-delimited section names) for enabled Craft courses.
+     *
+     * @return list<array{cldId: string, LessonName: string, LessonID: int, courseOutline: string}>|null
+     */
+    public function buildCourseOutlineBackfillExport(?string $craftExportPath = null): ?array
+    {
+        $craftCourses = $this->enabledCraftCoursesForBackfill($craftExportPath);
+        if ($craftCourses === []) {
+            Log::error('No enabled Craft courses with cldId found for courseOutline backfill');
+
+            return null;
+        }
+
+        $token = $this->getBearerToken();
+
+        $rowsByLessonId = [];
+        foreach ($craftCourses as $course) {
+            $rowsByLessonId[$course['LessonID']] = [
+                'cldId' => $course['cldId'],
+                'LessonName' => $course['LessonName'],
+                'LessonID' => $course['LessonID'],
+                'courseOutline' => '',
+            ];
+        }
+
+        $chunkSize = 20;
+        $chunks = array_chunk($craftCourses, $chunkSize);
+        foreach ($chunks as $chunk) {
+            $responses = Http::pool(function (Pool $pool) use ($chunk, $token) {
+                foreach ($chunk as $course) {
+                    $pool->as((string) $course['LessonID'])
+                        ->withToken($token)
+                        ->withHeaders(['Content-Type' => 'application/json'])
+                        ->connectTimeout(15)
+                        ->timeout(60)
+                        ->get($this->baseUrl.'/api/LessonSection?text='.$course['LessonID']);
+                }
+            });
+
+            foreach ($chunk as $course) {
+                $lessonId = $course['LessonID'];
+                $resp = $responses[(string) $lessonId] ?? null;
+                if (! ($resp instanceof \Illuminate\Http\Client\Response) || ! $resp->successful()) {
+                    continue;
+                }
+
+                $payload = $resp->json();
+                if (! is_array($payload)) {
+                    continue;
+                }
+
+                $rowsByLessonId[$lessonId]['courseOutline'] = $this->formatCourseOutlineAsPipe($payload, $lessonId);
+            }
+        }
+
+        $rows = array_values($rowsByLessonId);
+        usort($rows, static fn (array $a, array $b) => $a['LessonID'] <=> $b['LessonID']);
+
+        return $rows;
+    }
+
+    /**
+     * @return int|null Number of courses written, or null on failure.
+     */
+    public function writeCourseOutlineBackfillExport(?string $path = null, ?string $craftExportPath = null): ?int
+    {
+        $rows = $this->buildCourseOutlineBackfillExport($craftExportPath);
+        if ($rows === null) {
+            return null;
+        }
+
+        $path = $path ?? $this->courseOutlineBackfillExportPath();
+        $directory = dirname($path);
+        if (! File::isDirectory($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        $json = json_encode(
+            $rows,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+
+        if ($json === false) {
+            return null;
+        }
+
+        File::put($path, $json);
+
+        return count($rows);
+    }
+
     public function getCourseOutline($cldid, string $token): ?array
     {
         return $this->doCurlGetRequest($this->baseUrl.'/api/LessonSection?text='.$cldid, $token);
@@ -674,21 +1013,10 @@ class CldApiService
         }
 
         $CourseOutline = $this->getCourseOutline($cldid, $token);
-        $courseOutlineHtml = '';
-        if (is_array($CourseOutline) && count($CourseOutline) > 0) {
-            $courseOutlineHtml = '<ul>';
-            foreach ($CourseOutline as $outline) {
-                if (! empty($outline['SectionName']) && strlen($outline['SectionName']) == mb_strlen($outline['SectionName'], 'utf-8')) {
-                    if (($outline['LocaleID'] ?? 0) == 1) {
-                        $courseOutlineHtml .= '<li>'.$this->convertSpecialChar($outline['SectionName']).'</li>';
-                    }
-                }
-            }
-            $courseOutlineHtml .= '</ul>';
-            if ($courseOutlineHtml === '<ul></ul>') {
-                $courseOutlineHtml = '';
-            }
-        }
+        $courseOutlineHtml = $this->formatCourseOutlineAsPipe(
+            is_array($CourseOutline) ? $CourseOutline : null,
+            $cldid
+        );
 
         $CourseObjectives = $this->getCourseObjectives($cldid, $token);
         $courseObjectivesHtml = '';

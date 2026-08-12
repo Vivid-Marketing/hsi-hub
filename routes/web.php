@@ -21,6 +21,10 @@ Route::prefix('feeds/cld')->group(function () {
     Route::get('/courses', [CldFeedsController::class, 'courses'])->name('feeds.cld.courses');
     Route::get('/courses/singles', [CldFeedsController::class, 'singles'])->name('feeds.cld.courses.singles');
     Route::get('/courses/emea', [CldFeedsController::class, 'emea'])->name('feeds.cld.courses.emea');
+    Route::get('/courses/backfill/longFieldDescription', [CldFeedsController::class, 'backfillLongFieldDescription'])
+        ->name('feeds.cld.courses.backfill.long-field-description');
+    Route::get('/courses/backfill/courseOutline', [CldFeedsController::class, 'backfillCourseOutline'])
+        ->name('feeds.cld.courses.backfill.course-outline');
 });
 
 // Internal endpoint for Course Catalog PDF batch ingestion (signed request).

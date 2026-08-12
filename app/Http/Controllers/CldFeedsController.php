@@ -141,6 +141,56 @@ class CldFeedsController extends Controller
     }
 
     /**
+     * Backfill feed for Craft longFieldDescription (from CLD GEODescription).
+     * Scoped to enabled Craft course entries with a cldId.
+     * Serves cached JSON from storage; use ?refresh=1 to rebuild from CLD API.
+     */
+    public function backfillLongFieldDescription(Request $request, CldApiService $cldApi)
+    {
+        $path = $cldApi->longFieldDescriptionBackfillExportPath();
+
+        if ($request->boolean('refresh') || ! File::exists($path)) {
+            ini_set('memory_limit', '2G');
+
+            $count = $cldApi->writeLongFieldDescriptionBackfillExport($path);
+            if ($count === null) {
+                abort(503, 'Failed to build longFieldDescription backfill from Craft export + CLD API.');
+            }
+        }
+
+        return response(
+            File::get($path),
+            200,
+            ['Content-Type' => 'application/json; charset=UTF-8']
+        );
+    }
+
+    /**
+     * Backfill feed for Craft courseOutline (pipe-delimited LessonSection names).
+     * Scoped to enabled Craft course entries with a cldId.
+     * Serves cached JSON from storage; use ?refresh=1 to rebuild from CLD API.
+     */
+    public function backfillCourseOutline(Request $request, CldApiService $cldApi)
+    {
+        $path = $cldApi->courseOutlineBackfillExportPath();
+
+        if ($request->boolean('refresh') || ! File::exists($path)) {
+            ini_set('memory_limit', '2G');
+
+            $count = $cldApi->writeCourseOutlineBackfillExport($path);
+            if ($count === null) {
+                abort(503, 'Failed to build courseOutline backfill from Craft export + CLD API.');
+            }
+        }
+
+        return response(
+            File::get($path),
+            200,
+            ['Content-Type' => 'application/json; charset=UTF-8']
+        );
+    }
+
+    /**
      * Singles feed (from course_api_data_singles).
      * Old equivalent: create-api-json-feed-singles.php
      */

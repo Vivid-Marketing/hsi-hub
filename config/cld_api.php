@@ -59,6 +59,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Craft course backfill feeds
+    |--------------------------------------------------------------------------
+    |
+    | craft_courses_export: absolute path to a Craft entries JSON export used to
+    | determine which CLD lesson IDs to include in backfill feeds.
+    |
+    */
+    'backfill' => [
+        'craft_courses_export' => env('CLD_BACKFILL_CRAFT_COURSES_EXPORT'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Storage paths (relative to storage/app or use absolute)
     |--------------------------------------------------------------------------
     */
