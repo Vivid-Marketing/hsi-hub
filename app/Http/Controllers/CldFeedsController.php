@@ -60,7 +60,7 @@ class CldFeedsController extends Controller
      * Full feed (from course_api_data).
      * Old equivalent: create-api-xml-feed.php (despite the filename, it outputs JSON).
      */
-    public function courses(Request $request)
+    public function courses(Request $request, CldApiService $cldApi)
     {
         $this->guardPasskey($request);
 
@@ -75,37 +75,7 @@ class CldFeedsController extends Controller
             $currentLanguage = $this->languageSlugFromLocale($row->locale ?? null);
             $affsString = $this->affiliationsToPipe($row->lessonAffiliations ?? null);
 
-            $courses[] = [
-                'title' => (string) ($row->title ?? ''),
-                'cldId' => (string) ($row->cldId ?? ''),
-                'salesLibraryTopic' => $this->encodeSpecialCharacters((string) ($row->salesLibraryTopic ?? '')),
-                'courseTopic' => $this->encodeSpecialCharacters((string) ($row->courseTopic ?? '')),
-                'collections' => (string) ($row->collections ?? ''),
-                'vendorId' => (string) ($row->vendorId ?? ''),
-                'vendorName' => (string) ($row->vendorName ?? ''),
-                'libraryId' => (string) ($row->libraryId ?? ''),
-                'libraryName' => $this->encodeSpecialCharacters((string) ($row->libraryName ?? '')),
-                'lessonId' => (string) ($row->lessonId ?? ''),
-                'ej4CourseNumber' => (string) ($row->ej4CourseNumber ?? ''),
-                'lessonModality' => (string) ($row->lessonModality ?? ''),
-                'hsiProgramID' => (string) ($row->hsiProgramID ?? ''),
-                'lessonLength' => (string) ($row->lessonLength ?? ''),
-                'locale' => (string) ($row->locale ?? ''),
-                'allLocales' => (string) ($row->allLocales ?? ''),
-                'lessonAffiliations' => $affsString,
-                // FeedMe expects string values, not booleans
-                'isRecommended' => (! empty($row->isRecommended) && (string) $row->isRecommended !== '0') ? 'true' : 'false',
-                // matches old behavior: prefix with current language (no delimiter)
-                'courseLanguageCategoriesSlug' => $currentLanguage.(string) ($row->courseLanguageCategoriesSlug ?? ''),
-                'pricingTier' => (string) ($row->pricingTier ?? ''),
-                'courseImageUrl' => (string) ($row->courseImageUrl ?? ''),
-                'courseImageThumbUrl' => (string) ($row->courseImageThumbUrl ?? ''),
-                'courseInformation' => $this->encodeSpecialCharacters((string) ($row->courseInformation ?? '')),
-                'marketingDescription' => $this->encodeSpecialCharacters((string) ($row->marketingDescription ?? '')),
-                'courseOutline' => $this->encodeSpecialCharacters((string) ($row->courseOutline ?? '')),
-                'courseObjectives' => $this->encodeSpecialCharacters((string) ($row->courseObjectives ?? '')),
-                'courseRegulations' => $this->encodeSpecialCharacters((string) ($row->courseRegulations ?? '')),
-            ];
+            $courses[] = $this->courseRowToFeedJson($row, $currentLanguage, $affsString, $cldApi);
         }
 
         return response()->json(
@@ -194,7 +164,7 @@ class CldFeedsController extends Controller
      * Singles feed (from course_api_data_singles).
      * Old equivalent: create-api-json-feed-singles.php
      */
-    public function singles(Request $request)
+    public function singles(Request $request, CldApiService $cldApi)
     {
         $this->guardPasskey($request);
 
@@ -209,7 +179,7 @@ class CldFeedsController extends Controller
             $currentLanguage = $this->languageSlugFromLocale($row->locale ?? null);
             $affsString = $this->affiliationsToPipe($row->lessonAffiliations ?? null);
 
-            $courses[] = $this->courseRowToFeedJson($row, $currentLanguage, $affsString, includeVimeoId: true);
+            $courses[] = $this->courseRowToFeedJson($row, $currentLanguage, $affsString, $cldApi, includeVimeoId: true);
         }
 
         return response()->json(
@@ -223,8 +193,18 @@ class CldFeedsController extends Controller
     /**
      * @return array<string, string>
      */
-    private function courseRowToFeedJson(object $row, string $currentLanguage, string $affsString, bool $includeVimeoId = false): array
-    {
+    private function courseRowToFeedJson(
+        object $row,
+        string $currentLanguage,
+        string $affsString,
+        CldApiService $cldApi,
+        bool $includeVimeoId = false
+    ): array {
+        $outlineFields = $cldApi->normalizeCourseOutlineFeedFields(
+            isset($row->courseOutline) ? (string) $row->courseOutline : null,
+            isset($row->courseOutlineList) ? (string) $row->courseOutlineList : null
+        );
+
         $course = [
             'title' => (string) ($row->title ?? ''),
             'cldId' => (string) ($row->cldId ?? ''),
@@ -250,7 +230,8 @@ class CldFeedsController extends Controller
             'courseImageThumbUrl' => (string) ($row->courseImageThumbUrl ?? ''),
             'courseInformation' => $this->encodeSpecialCharacters((string) ($row->courseInformation ?? '')),
             'marketingDescription' => $this->encodeSpecialCharacters((string) ($row->marketingDescription ?? '')),
-            'courseOutline' => $this->encodeSpecialCharacters((string) ($row->courseOutline ?? '')),
+            'courseOutline' => $this->encodeSpecialCharacters($outlineFields['courseOutline']),
+            'courseOutlineList' => $this->encodeSpecialCharacters($outlineFields['courseOutlineList']),
             'courseObjectives' => $this->encodeSpecialCharacters((string) ($row->courseObjectives ?? '')),
             'courseRegulations' => $this->encodeSpecialCharacters((string) ($row->courseRegulations ?? '')),
         ];

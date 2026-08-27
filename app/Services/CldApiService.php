@@ -392,15 +392,15 @@ class CldApiService
     }
 
     /**
-     * Turn LessonSection API rows into a Feed Me-friendly pipe-delimited string.
-     * Pipes inside section names are normalized so they are not treated as delimiters.
+     * Extract LocaleID=1 section names from LessonSection API rows.
      *
      * @param  list<array<string, mixed>>|array<string, mixed>|null  $courseOutline
+     * @return list<string>
      */
-    public function formatCourseOutlineAsPipe(?array $courseOutline, int|string|null $lessonId = null): string
+    public function extractCourseOutlineSectionNames(?array $courseOutline, int|string|null $lessonId = null): array
     {
         if (! is_array($courseOutline) || $courseOutline === []) {
-            return '';
+            return [];
         }
 
         // Single-object responses are uncommon, but normalize to a list.
@@ -445,7 +445,111 @@ class CldApiService
             }
         }
 
+        return $sections;
+    }
+
+    /**
+     * Turn LessonSection API rows into a Feed Me-friendly pipe-delimited string.
+     *
+     * @param  list<array<string, mixed>>|array<string, mixed>|null  $courseOutline
+     */
+    public function formatCourseOutlineAsPipe(?array $courseOutline, int|string|null $lessonId = null): string
+    {
+        return implode('|', $this->extractCourseOutlineSectionNames($courseOutline, $lessonId));
+    }
+
+    /**
+     * Turn LessonSection API rows into Redactor-friendly HTML list markup.
+     *
+     * @param  list<array<string, mixed>>|array<string, mixed>|null  $courseOutline
+     */
+    public function formatCourseOutlineAsHtml(?array $courseOutline, int|string|null $lessonId = null): string
+    {
+        $sections = $this->extractCourseOutlineSectionNames($courseOutline, $lessonId);
+        if ($sections === []) {
+            return '';
+        }
+
+        $html = '<ul>';
+        foreach ($sections as $section) {
+            $html .= '<li>'.$section.'</li>';
+        }
+        $html .= '</ul>';
+
+        return $html;
+    }
+
+    /**
+     * Normalize stored outline values so feeds always expose HTML + pipe variants.
+     *
+     * @return array{courseOutline: string, courseOutlineList: string}
+     */
+    public function normalizeCourseOutlineFeedFields(?string $courseOutline, ?string $courseOutlineList = null): array
+    {
+        $html = trim((string) ($courseOutline ?? ''));
+        $list = trim((string) ($courseOutlineList ?? ''));
+
+        $looksLikeHtml = $html !== '' && (str_contains($html, '<li') || str_contains($html, '<ul'));
+
+        if ($list === '' && $html !== '') {
+            if ($looksLikeHtml) {
+                $list = $this->courseOutlineHtmlToPipe($html);
+            } else {
+                // Stored courseOutline is already pipe-delimited (e.g. older singles sync).
+                $list = $html;
+                $html = $this->courseOutlinePipeToHtml($list);
+            }
+        } elseif ($list !== '' && ($html === '' || ! $looksLikeHtml)) {
+            $html = $this->courseOutlinePipeToHtml($list);
+        }
+
+        return [
+            'courseOutline' => $html,
+            'courseOutlineList' => $list,
+        ];
+    }
+
+    public function courseOutlineHtmlToPipe(string $html): string
+    {
+        if ($html === '') {
+            return '';
+        }
+
+        preg_match_all('/<li\b[^>]*>(.*?)<\/li>/is', $html, $matches);
+        $sections = [];
+        foreach ($matches[1] ?? [] as $item) {
+            $sectionName = trim(html_entity_decode(strip_tags((string) $item), ENT_QUOTES, 'UTF-8'));
+            $sectionName = trim(str_replace('|', ' - ', $sectionName));
+            $sectionName = preg_replace('/\s+/u', ' ', $sectionName) ?? $sectionName;
+            $sectionName = trim($sectionName);
+            if ($sectionName !== '') {
+                $sections[] = $sectionName;
+            }
+        }
+
         return implode('|', $sections);
+    }
+
+    public function courseOutlinePipeToHtml(string $pipe): string
+    {
+        $pipe = trim($pipe);
+        if ($pipe === '') {
+            return '';
+        }
+
+        $html = '<ul>';
+        $hasItems = false;
+        foreach (explode('|', $pipe) as $item) {
+            $item = trim($item);
+            if ($item === '') {
+                continue;
+            }
+            $hasItems = true;
+            $html .= '<li>'.$item.'</li>';
+        }
+        $html .= '</ul>';
+
+        return $hasItems ? $html : '';
     }
 
     /**
@@ -544,12 +648,47 @@ class CldApiService
     /**
      * Build courseOutline backfill rows (pipe-delimited section names) for enabled Craft courses.
      *
+     * @param  list<int>|null  $lessonIds  When set, only these lesson IDs are exported (still enriched with Craft titles when available).
      * @return list<array{cldId: string, LessonName: string, LessonID: int, courseOutline: string}>|null
      */
-    public function buildCourseOutlineBackfillExport(?string $craftExportPath = null): ?array
+    public function buildCourseOutlineBackfillExport(?string $craftExportPath = null, ?array $lessonIds = null): ?array
     {
         $craftCourses = $this->enabledCraftCoursesForBackfill($craftExportPath);
-        if ($craftCourses === []) {
+        $craftByLessonId = [];
+        foreach ($craftCourses as $course) {
+            $craftByLessonId[$course['LessonID']] = $course;
+        }
+
+        if ($lessonIds !== null) {
+            $normalizedIds = [];
+            foreach ($lessonIds as $lessonId) {
+                if ($lessonId === null || $lessonId === '') {
+                    continue;
+                }
+                $normalizedIds[(int) $lessonId] = true;
+            }
+            $lessonIds = array_map('intval', array_keys($normalizedIds));
+            sort($lessonIds);
+
+            if ($lessonIds === []) {
+                Log::error('No lesson IDs provided for courseOutline backfill');
+
+                return null;
+            }
+
+            $craftCourses = [];
+            foreach ($lessonIds as $lessonId) {
+                if (isset($craftByLessonId[$lessonId])) {
+                    $craftCourses[] = $craftByLessonId[$lessonId];
+                } else {
+                    $craftCourses[] = [
+                        'cldId' => 'CLD-'.$lessonId,
+                        'LessonID' => $lessonId,
+                        'LessonName' => '',
+                    ];
+                }
+            }
+        } elseif ($craftCourses === []) {
             Log::error('No enabled Craft courses with cldId found for courseOutline backfill');
 
             return null;
@@ -604,11 +743,12 @@ class CldApiService
     }
 
     /**
+     * @param  list<int>|null  $lessonIds
      * @return int|null Number of courses written, or null on failure.
      */
-    public function writeCourseOutlineBackfillExport(?string $path = null, ?string $craftExportPath = null): ?int
+    public function writeCourseOutlineBackfillExport(?string $path = null, ?string $craftExportPath = null, ?array $lessonIds = null): ?int
     {
-        $rows = $this->buildCourseOutlineBackfillExport($craftExportPath);
+        $rows = $this->buildCourseOutlineBackfillExport($craftExportPath, $lessonIds);
         if ($rows === null) {
             return null;
         }
@@ -1013,10 +1153,9 @@ class CldApiService
         }
 
         $CourseOutline = $this->getCourseOutline($cldid, $token);
-        $courseOutlineHtml = $this->formatCourseOutlineAsPipe(
-            is_array($CourseOutline) ? $CourseOutline : null,
-            $cldid
-        );
+        $courseOutlineSections = is_array($CourseOutline) ? $CourseOutline : null;
+        $courseOutlineHtml = $this->formatCourseOutlineAsHtml($courseOutlineSections, $cldid);
+        $courseOutlineList = $this->formatCourseOutlineAsPipe($courseOutlineSections, $cldid);
 
         $CourseObjectives = $this->getCourseObjectives($cldid, $token);
         $courseObjectivesHtml = '';
@@ -1070,6 +1209,7 @@ class CldApiService
             'courseInformation' => $courseInformation,
             'marketingDescription' => '',
             'courseOutline' => $courseOutlineHtml,
+            'courseOutlineList' => $courseOutlineList,
             'courseObjectives' => $courseObjectivesHtml,
             'courseRegulations' => $courseRegulationsHtml,
         ];
@@ -1153,6 +1293,7 @@ class CldApiService
             'courseInformation' => $courseApiData['courseInformation'],
             'marketingDescription' => $courseApiData['marketingDescription'],
             'courseOutline' => $courseApiData['courseOutline'],
+            'courseOutlineList' => $courseApiData['courseOutlineList'] ?? '',
             'courseObjectives' => $courseApiData['courseObjectives'],
             'courseRegulations' => $courseApiData['courseRegulations'],
             'parentCldid' => $courseApiData['parentCldid'] ?? null,
@@ -1212,6 +1353,7 @@ class CldApiService
             'courseInformation' => $courseApiData['courseInformation'],
             'marketingDescription' => $courseApiData['marketingDescription'],
             'courseOutline' => $courseApiData['courseOutline'],
+            'courseOutlineList' => $courseApiData['courseOutlineList'] ?? '',
             'courseObjectives' => $courseApiData['courseObjectives'],
             'courseRegulations' => $courseApiData['courseRegulations'],
         ];
@@ -1463,6 +1605,7 @@ class CldApiService
                 'courseInformation' => $row->courseInformation,
                 'marketingDescription' => $row->marketingDescription,
                 'courseOutline' => $row->courseOutline,
+                'courseOutlineList' => $row->courseOutlineList ?? '',
                 'courseObjectives' => $row->courseObjectives,
                 'courseRegulations' => $row->courseRegulations,
                 'parentCldid' => $row->parentCldid ?? null,

@@ -28,3 +28,4 @@ Thumbs.db
 
 # Local Craft export used for CLD backfill feeds (upload to servers manually)
 /private/courses-latest-entries-aug-10-2026.json
+/private/course-outline-empty-lesson-ids.txt
