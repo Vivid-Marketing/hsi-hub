@@ -161,6 +161,25 @@ class CldFeedsController extends Controller
     }
 
     /**
+     * Targeted courseOutlineList backfill (non-empty pipe lists only).
+     * Serves storage/app/cld-api/backfill-course-outline-empty-retry.json
+     */
+    public function backfillCourseOutlineList(CldApiService $cldApi)
+    {
+        $path = $cldApi->courseOutlineListBackfillExportPath();
+
+        if (! File::exists($path)) {
+            abort(404, 'courseOutlineList backfill JSON not found. Generate it locally and deploy the file to storage/app/cld-api/.');
+        }
+
+        return response(
+            File::get($path),
+            200,
+            ['Content-Type' => 'application/json; charset=UTF-8']
+        );
+    }
+
+    /**
      * Singles feed (from course_api_data_singles).
      * Old equivalent: create-api-json-feed-singles.php
      */

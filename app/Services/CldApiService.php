@@ -318,6 +318,11 @@ class CldApiService
         return storage_path('app/cld-api/backfill-course-outline.json');
     }
 
+    public function courseOutlineListBackfillExportPath(): string
+    {
+        return storage_path('app/cld-api/backfill-course-outline-empty-retry.json');
+    }
+
     /**
      * Enabled Craft course rows with a cldId, for backfill feeds.
      *
@@ -649,7 +654,7 @@ class CldApiService
      * Build courseOutline backfill rows (pipe-delimited section names) for enabled Craft courses.
      *
      * @param  list<int>|null  $lessonIds  When set, only these lesson IDs are exported (still enriched with Craft titles when available).
-     * @return list<array{cldId: string, LessonName: string, LessonID: int, courseOutline: string}>|null
+     * @return list<array{cldId: string, LessonName: string, LessonID: int, courseOutlineList: string}>|null
      */
     public function buildCourseOutlineBackfillExport(?string $craftExportPath = null, ?array $lessonIds = null): ?array
     {
@@ -702,7 +707,7 @@ class CldApiService
                 'cldId' => $course['cldId'],
                 'LessonName' => $course['LessonName'],
                 'LessonID' => $course['LessonID'],
-                'courseOutline' => '',
+                'courseOutlineList' => '',
             ];
         }
 
@@ -732,7 +737,7 @@ class CldApiService
                     continue;
                 }
 
-                $rowsByLessonId[$lessonId]['courseOutline'] = $this->formatCourseOutlineAsPipe($payload, $lessonId);
+                $rowsByLessonId[$lessonId]['courseOutlineList'] = $this->formatCourseOutlineAsPipe($payload, $lessonId);
             }
         }
 

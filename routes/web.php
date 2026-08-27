@@ -25,6 +25,8 @@ Route::prefix('feeds/cld')->group(function () {
         ->name('feeds.cld.courses.backfill.long-field-description');
     Route::get('/courses/backfill/courseOutline', [CldFeedsController::class, 'backfillCourseOutline'])
         ->name('feeds.cld.courses.backfill.course-outline');
+    Route::get('/courses/backfill/courseOutlineList', [CldFeedsController::class, 'backfillCourseOutlineList'])
+        ->name('feeds.cld.courses.backfill.course-outline-list');
 });
 
 // Internal endpoint for Course Catalog PDF batch ingestion (signed request).
