@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CfCacheController;
 use App\Http\Controllers\CldFeedsController;
 use App\Http\Controllers\CoursesController;
 use App\Http\Controllers\DashboardController;
@@ -121,6 +122,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('rich-text-tools')->name('rich-text-tools.')->group(function () {
         Route::get('/', [RichTextToolsController::class, 'index'])->name('index');
         Route::post('/clean-links', [RichTextToolsController::class, 'cleanLinks'])->name('clean-links');
+    });
+
+    // Cloudflare cache purge routes (admins only)
+    Route::prefix('cf-cache')->name('cf-cache.')->middleware('role:admin|super-admin')->group(function () {
+        Route::get('/', [CfCacheController::class, 'index'])->name('index');
+        Route::post('/purge-urls', [CfCacheController::class, 'purgeUrls'])->name('purge-urls');
+        Route::post('/purge-all', [CfCacheController::class, 'purgeAll'])->name('purge-all');
     });
 
     // User Management routes

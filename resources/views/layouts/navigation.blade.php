@@ -32,6 +32,12 @@
                         {{ __('Podcast Tools') }}
                     </x-nav-link>
                     
+                    @hasanyrole('admin|super-admin')
+                    <x-nav-link :href="route('cf-cache.index')" :active="request()->routeIs('cf-cache.*')">
+                        {{ __('CF Cache') }}
+                    </x-nav-link>
+                    @endhasanyrole
+                    
                     @can('manage-users')
                     <x-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">
                         {{ __('User Management') }}
@@ -114,6 +120,12 @@
             <x-responsive-nav-link :href="route('mp3-tools.index')" :active="request()->routeIs('mp3-tools.*')">
                 {{ __('Podcast Tools') }}
             </x-responsive-nav-link>
+            
+            @hasanyrole('admin|super-admin')
+            <x-responsive-nav-link :href="route('cf-cache.index')" :active="request()->routeIs('cf-cache.*')">
+                {{ __('CF Cache') }}
+            </x-responsive-nav-link>
+            @endhasanyrole
             
             @can('manage-users')
             <x-responsive-nav-link :href="route('users.index')" :active="request()->routeIs('users.*')">

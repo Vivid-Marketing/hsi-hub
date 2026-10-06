@@ -45,4 +45,11 @@ return [
         'max_videos' => (int) env('VIMEO_MAX_VIDEOS', 500),
     ],
 
+    'cloudflare' => [
+        // API token scoped to the hsi.com zone (Zone > Cache Purge).
+        'api_token' => env('CLOUDFLARE_API_TOKEN'),
+        'zone_id' => env('CLOUDFLARE_ZONE_ID'),
+        'base_url' => env('CLOUDFLARE_API_BASE_URL', 'https://api.cloudflare.com/client/v4'),
+    ],
+
 ];
