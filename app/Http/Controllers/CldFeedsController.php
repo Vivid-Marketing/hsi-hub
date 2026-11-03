@@ -180,6 +180,31 @@ class CldFeedsController extends Controller
     }
 
     /**
+     * Backfill feed for Craft courseLanguageCategories (allLocales slugs from CLD Locales).
+     * Scoped to enabled Craft course entries with a cldId.
+     * Serves cached JSON from storage; use ?refresh=1 to rebuild from CLD API.
+     */
+    public function backfillCourseLanguages(Request $request, CldApiService $cldApi)
+    {
+        $path = $cldApi->courseLanguagesBackfillExportPath();
+
+        if ($request->boolean('refresh') || ! File::exists($path)) {
+            ini_set('memory_limit', '2G');
+
+            $count = $cldApi->writeCourseLanguagesBackfillExport($path);
+            if ($count === null) {
+                abort(503, 'Failed to build course languages backfill from Craft export + CLD API.');
+            }
+        }
+
+        return response(
+            File::get($path),
+            200,
+            ['Content-Type' => 'application/json; charset=UTF-8']
+        );
+    }
+
+    /**
      * Singles feed (from course_api_data_singles).
      * Old equivalent: create-api-json-feed-singles.php
      */

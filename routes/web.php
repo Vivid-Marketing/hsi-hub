@@ -28,6 +28,8 @@ Route::prefix('feeds/cld')->group(function () {
         ->name('feeds.cld.courses.backfill.course-outline');
     Route::get('/courses/backfill/courseOutlineList', [CldFeedsController::class, 'backfillCourseOutlineList'])
         ->name('feeds.cld.courses.backfill.course-outline-list');
+    Route::get('/courses/backfill/courseLanguages', [CldFeedsController::class, 'backfillCourseLanguages'])
+        ->name('feeds.cld.courses.backfill.course-languages');
 });
 
 // Internal endpoint for Course Catalog PDF batch ingestion (signed request).

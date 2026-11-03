@@ -305,7 +305,7 @@ class CldApiService
             return $configured;
         }
 
-        return base_path('private/courses-latest-entries-aug-10-2026.json');
+        return base_path('private/courses-entries-oct-28-2026.json');
     }
 
     public function longFieldDescriptionBackfillExportPath(): string
@@ -321,6 +321,11 @@ class CldApiService
     public function courseOutlineListBackfillExportPath(): string
     {
         return storage_path('app/cld-api/backfill-course-outline-empty-retry.json');
+    }
+
+    public function courseLanguagesBackfillExportPath(): string
+    {
+        return storage_path('app/cld-api/backfill-course-languages.json');
     }
 
     /**
@@ -359,7 +364,7 @@ class CldApiService
                 continue;
             }
 
-            $cldId = trim((string) $cldId);
+            $cldId = preg_replace('/\s+/', '', (string) $cldId) ?? '';
             if ($cldId === '') {
                 continue;
             }
@@ -759,6 +764,101 @@ class CldApiService
         }
 
         $path = $path ?? $this->courseOutlineBackfillExportPath();
+        $directory = dirname($path);
+        if (! File::isDirectory($directory)) {
+            File::makeDirectory($directory, 0755, true);
+        }
+
+        $json = json_encode(
+            $rows,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+        );
+
+        if ($json === false) {
+            return null;
+        }
+
+        File::put($path, $json);
+
+        return count($rows);
+    }
+
+    /**
+     * Build backfill feed for Craft courseLanguageCategories (allLocales slugs) for enabled Craft courses.
+     * Uses one full catalog fetch. Courses missing from the catalog or with no mappable active locale are
+     * left out (and logged) so FeedMe never clears a course's languages.
+     *
+     * @return list<array{cldId: string, LessonName: string, LessonID: int, allLocales: string}>|null
+     */
+    public function buildCourseLanguagesBackfillExport(?string $craftExportPath = null): ?array
+    {
+        $craftCourses = $this->enabledCraftCoursesForBackfill($craftExportPath);
+        if ($craftCourses === []) {
+            Log::error('No enabled Craft courses with cldId found for course languages backfill');
+
+            return null;
+        }
+
+        $token = $this->getBearerToken();
+        $catalog = $this->getAllCatalogCourses($token);
+        if ($catalog === null) {
+            return null;
+        }
+
+        $localesByLessonId = [];
+        foreach ($catalog as $course) {
+            if (is_array($course) && isset($course['LessonID'])) {
+                $localesByLessonId[(int) $course['LessonID']] = is_array($course['Locales'] ?? null) ? $course['Locales'] : [];
+            }
+        }
+
+        $rows = [];
+        $missing = [];
+        $empty = [];
+        foreach ($craftCourses as $course) {
+            $lessonId = $course['LessonID'];
+            if (! isset($localesByLessonId[$lessonId])) {
+                $missing[] = $lessonId;
+
+                continue;
+            }
+
+            $allLocales = $this->localesToCraftLanguageSlugs($localesByLessonId[$lessonId]);
+            if ($allLocales === '') {
+                $empty[] = $lessonId;
+
+                continue;
+            }
+
+            $rows[] = [
+                'cldId' => $course['cldId'],
+                'LessonName' => $course['LessonName'],
+                'LessonID' => $lessonId,
+                'allLocales' => $allLocales,
+            ];
+        }
+
+        if ($missing !== [] || $empty !== []) {
+            Log::warning('Course languages backfill skipped courses', [
+                'not_in_cld_catalog' => $missing,
+                'no_active_mapped_locales' => $empty,
+            ]);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return int|null Number of courses written, or null on failure.
+     */
+    public function writeCourseLanguagesBackfillExport(?string $path = null, ?string $craftExportPath = null): ?int
+    {
+        $rows = $this->buildCourseLanguagesBackfillExport($craftExportPath);
+        if ($rows === null) {
+            return null;
+        }
+
+        $path = $path ?? $this->courseLanguagesBackfillExportPath();
         $directory = dirname($path);
         if (! File::isDirectory($directory)) {
             File::makeDirectory($directory, 0755, true);
@@ -1228,38 +1328,67 @@ class CldApiService
         ];
     }
 
+    /**
+     * CLD LocaleCode => Craft "Course Languages" category slug.
+     * Several codes can share a slug (e.g. CLD has both the legacy in_HI and hi_IN for Hindi).
+     */
     public function getSlugFromLocalCode(string $localCode): ?string
     {
-        $craftLanguageCatSlugs = [
-            'english' => 'en_US',
-            'spanish' => 'es_US',
-            'french-canadian' => 'fr_CA',
-            'french' => 'fr_FR',
-            'chinese' => 'zh_TW',
-            'korean' => 'ko_KR',
-            'portuguese' => 'pt_PT',
-            'brazilian-portuguese' => 'pt_BR',
-            'russian' => 'ru_RU',
-            'thai' => 'th_TH',
-            'vietnamese' => 'vi_VN',
-            'chinese-simplified' => 'zh_CN',
-            'german' => 'de_DE',
-            'hindi' => 'in_HI',
-            'polish' => 'pl_PL',
-            'mexican-spanish' => 'es_MX',
-            'italian' => 'it_IT',
-            'swedish' => 'sv_SE',
-            'bosnian' => 'bs_BA',
-            'dutch' => 'nl_NL',
-            'czech' => 'cs_CS',
-            'turkish' => 'tr_TR',
-            'spanish-spain' => 'es_ES',
-            'filipino' => 'fil',
-            'japanese' => 'ja_JP',
+        $localeCodeToCraftSlug = [
+            'en_US' => 'english',
+            'es_US' => 'spanish',
+            'fr_CA' => 'french-canadian',
+            'fr_FR' => 'french',
+            'zh_TW' => 'chinese',
+            'ko_KR' => 'korean',
+            'pt_PT' => 'portuguese',
+            'pt_BR' => 'brazilian-portuguese',
+            'ru_RU' => 'russian',
+            'th_TH' => 'thai',
+            'vi_VN' => 'vietnamese',
+            'zh_CN' => 'chinese-simplified',
+            'de_DE' => 'german',
+            'in_HI' => 'hindi',
+            'hi_IN' => 'hindi',
+            'pl_PL' => 'polish',
+            'es_MX' => 'mexican-spanish',
+            'it_IT' => 'italian',
+            'sv_SE' => 'swedish',
+            'bs_BA' => 'bosnian',
+            'nl_NL' => 'dutch',
+            'cs_CS' => 'czech',
+            'tr_TR' => 'turkish',
+            'es_ES' => 'spanish-spain',
+            'fil' => 'filipino',
+            'fil_PH' => 'filipino',
+            'ja_JP' => 'japanese',
+            'ar' => 'arabic',
         ];
-        $slug = array_search($localCode, $craftLanguageCatSlugs, true);
 
-        return $slug !== false ? $slug : null;
+        return $localeCodeToCraftSlug[$localCode] ?? null;
+    }
+
+    /**
+     * Pipe-delimited Craft "Course Languages" slugs for a CLD Locales array (feeds Craft courseLanguageCategories).
+     * Skips locales deactivated in CLD (Status 0) and codes with no Craft category.
+     */
+    public function localesToCraftLanguageSlugs(array $locales): string
+    {
+        $slugs = [];
+        foreach ($locales as $locale) {
+            if (! is_array($locale)) {
+                continue;
+            }
+            if (isset($locale['Status']) && (int) $locale['Status'] === 0) {
+                continue;
+            }
+            $slug = $this->getSlugFromLocalCode((string) ($locale['LocaleCode'] ?? ''));
+            if ($slug) {
+                $slugs[] = $slug;
+            }
+        }
+
+        return implode('|', array_unique($slugs));
     }
 
     public function isCourseApiRowExists(string $cldId, string $table = 'course_api_data'): bool
@@ -1319,18 +1448,8 @@ class CldApiService
         }
         $dbTable = $table;
 
-        $allLocalesSlugs = [];
         $allLocalesArray = isset($courseApiData['allLocales']) ? @unserialize($courseApiData['allLocales']) : null;
-        if (is_array($allLocalesArray) && count($allLocalesArray) > 0) {
-            foreach ($allLocalesArray as $locale) {
-                $langCode = $locale['LocaleCode'] ?? '';
-                $foundCodeSlug = $this->getSlugFromLocalCode($langCode);
-                if ($foundCodeSlug) {
-                    $allLocalesSlugs[] = $foundCodeSlug;
-                }
-            }
-        }
-        $allSlugsDelimited = implode('|', $allLocalesSlugs);
+        $allSlugsDelimited = $this->localesToCraftLanguageSlugs(is_array($allLocalesArray) ? $allLocalesArray : []);
 
         $row = [
             'title' => $courseApiData['title'],
@@ -1436,7 +1555,11 @@ class CldApiService
         return false;
     }
 
-    protected function isEnglishLocaleUpdatedWithinMonthFromCatalogPayload(?array $catalogPayload): bool
+    /**
+     * True when any locale (not just en_US) has a LastUpdateDate within the last month.
+     * Content can update translations without touching the course-level LastUpdate or the English locale.
+     */
+    protected function isAnyLocaleUpdatedWithinMonthFromCatalogPayload(?array $catalogPayload): bool
     {
         if (empty($catalogPayload)) {
             return false;
@@ -1447,16 +1570,14 @@ class CldApiService
             return false;
         }
 
+        $lastMonthDate = (new \DateTime('1 month ago'))->format('Y-m-d H:i:s');
         foreach ($course['Locales'] as $locale) {
-            if (($locale['LocaleCode'] ?? '') === 'en_US') {
-                $lastUpdate = $locale['LastUpdateDate'] ?? null;
-                if (empty($lastUpdate)) {
-                    return false;
-                }
-                $lastUpdateDate = date('Y-m-d H:i:s', strtotime($lastUpdate));
-                $lastMonthDate = (new \DateTime('1 month ago'))->format('Y-m-d H:i:s');
-
-                return $lastUpdateDate > $lastMonthDate;
+            $lastUpdate = $locale['LastUpdateDate'] ?? null;
+            if (empty($lastUpdate)) {
+                continue;
+            }
+            if (date('Y-m-d H:i:s', strtotime($lastUpdate)) > $lastMonthDate) {
+                return true;
             }
         }
 
@@ -1568,7 +1689,7 @@ class CldApiService
                 $resp = $responses[(string) $lessonId];
                 if ($resp->successful()) {
                     $payload = $resp->json();
-                    if ($this->isEnglishLocaleUpdatedWithinMonthFromCatalogPayload($payload)) {
+                    if ($this->isAnyLocaleUpdatedWithinMonthFromCatalogPayload($payload)) {
                         $selected[(int) $lessonId] = true;
                     }
                 }
