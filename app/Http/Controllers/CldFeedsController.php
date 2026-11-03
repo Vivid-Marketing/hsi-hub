@@ -180,6 +180,56 @@ class CldFeedsController extends Controller
     }
 
     /**
+     * Backfill feed to clear Craft coursevideo on courses where it was set to the literal word "video".
+     * Course list comes from private/courses-coursevideo-video-word-nov-03-2026.csv (queried from Craft).
+     */
+    public function backfillRemoveVideoWord(Request $request)
+    {
+        $this->guardPasskey($request);
+
+        $path = base_path('private/courses-coursevideo-video-word-nov-03-2026.csv');
+
+        if (! File::exists($path)) {
+            abort(404, 'coursevideo "video" word backfill CSV not found.');
+        }
+
+        $handle = fopen($path, 'r');
+        $header = array_map('trim', fgetcsv($handle) ?: []);
+        $courses = [];
+        $seen = [];
+
+        while (($line = fgetcsv($handle)) !== false) {
+            if (count($line) !== count($header)) {
+                continue;
+            }
+
+            $row = array_combine($header, $line);
+            $lessonId = trim((string) ($row['cldId'] ?? ''));
+
+            if (! ctype_digit($lessonId) || isset($seen[$lessonId])) {
+                continue;
+            }
+            $seen[$lessonId] = true;
+
+            $courses[] = [
+                'cldId' => 'CLD-'.$lessonId,
+                'LessonName' => trim((string) ($row['Title'] ?? '')),
+                'LessonID' => (int) $lessonId,
+                'coursevideo' => '',
+            ];
+        }
+
+        fclose($handle);
+
+        return response()->json(
+            $courses,
+            200,
+            ['Content-Type' => 'application/json; charset=UTF-8'],
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
+        );
+    }
+
+    /**
      * Singles feed (from course_api_data_singles).
      * Old equivalent: create-api-json-feed-singles.php
      */
