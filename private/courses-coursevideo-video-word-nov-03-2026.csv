@@ -1,0 +1,103 @@
+cldId,courseVideo,Title,Has Thumb URL's
+5658,video,114-81 Fall Protection (CAD),Yes
+3952,video,DOT: Trip Inspections,Yes
+4581,video,DOT: Drug and Alcohol Testing for Employees,Yes
+4593,video,DOT: Driver Wellness,Yes
+6215,video,DOT: Driver Qualifications,Yes
+10214,video,Valve Safety,Yes
+11802,video,Pipeline Safety,Yes
+4582,video,DOT: Drug and Alcohol Testing for Employees Overview,Yes
+3284,video,Drug- and Alcohol-Free Workplace Overview,Yes
+10244,video,Air Emissions Management Overview,Yes
+5823,video,350-02 Types of Protective Relays,Yes
+5827,video,350-06 - Transformer Protection,Yes
+5856,video,387-07 - Supervisory Control and Data Acquisition Systems (SCADA),Yes
+5878,video,505-02 - Steam Turbine Control and Operation,Yes
+5820,video,301-08 Single and Poly-phase Metering,Yes
+5831,video,350-11 - Protection System Misoperation,Yes
+5968,video,560-04 - Protective Relays and Instrument Transformers,Yes
+5819,video,301-07 - Principles of Revenue Metering,Yes
+5815,video,301-03 - Primary and Secondary Distribution Systems,Yes
+5970,video,561-01 - Preparing for Power Plant Startups,Yes
+5828,video,350-07 - Pilot Protection,Yes
+5821,video,345-01 - NERC Overview and Application for Generator Operators,Yes
+5824,video,350-03 Monitoring System Conditions,Yes
+4928,video,417-03 - Medium and High Voltage Switchgear,Yes
+5965,video,560-01 - Main Transformers,Yes
+5818,video,301-06 - Load Characteristics and Management,Yes
+5826,video,350-05 - Line Protection,Yes
+5855,video,387-05 - Interconnected Energy Accounting,Yes
+5830,video,350-10 Generator Protection,Yes
+5883,video,507-03 - Generator Construction and Process Control,Yes
+5881,video,507-01 - Generator and Auxiliary Systems Functions,Yes
+4929,video,417-04 - General Switchgear Maintenance,Yes
+5822,video,350-01 - Elements of System Protection,Yes
+5814,video,301-02 - Electrical Distribution System Fundamentals,Yes
+5853,video,387-03 Economic Power System Operations,Yes
+5825,video,350-04 - Disturbance Monitoring Equipment,Yes
+5816,video,301-04 - Distribution System Components and Application,Yes
+5817,video,301-05 - Characteristics of Distribution Switchgear,Yes
+5829,video,350-09 - Bus Protection,Yes
+4188,video,Food Manufacturing: Quality Assurance Programs,Yes
+2013,video,MSHA - Miner Rights,Yes
+4940,video,421-02 - Terminating and Connecting Wire in a Control Panel,Yes
+4933,video,"418-02 - Overcurrent Protection, Fuses, and Breakers",Yes
+4898,video,401-03 Ohm’s and Kirchhoff’s Laws Relating to DC Circuits,Yes
+4900,video,402-02 Ohm’s and Kirchhoff’s Laws Involving AC Circuits,Yes
+4937,video,419-01 - MOV (Motor Operated Valve) Application &amp; Construction,Yes
+5725,video,171-10 - Introduction to Physics: Force and Motion,Yes
+5726,video,"171-11 - Introduction to Physics: Energy, Work, and Power",Yes
+5668,video,"117-08 - Hazardous Gases - Methane, Carbon Monoxide, and Carbon Dioxide",Yes
+3285,video,Violence in the Workplace Overview,Yes
+5890,video,511-04 - Introduction to the Siemens V-Series Gas Turbine,Yes
+5940,video,553-02 - Introduction to the Feedwater System,Yes
+5939,video,553-01 - Introduction to the Condensate System,Yes
+5929,video,551-01 - Introduction to the Circulating Water System,Yes
+5888,video,511-02 - Introduction to the GE LM Series Gas Turbine,Yes
+5889,video,511-03 - Introduction to GE Frame Series Gas Turbines,Yes
+6004,video,582-04 - HRSG - Auxiliary Equipment and Systems,Yes
+6003,video,582-03 - HRSG - Flow Path and Major Equipment,Yes
+6005,video,582-05 - HRSG - Basic Operating Concerns and Conditions,Yes
+5891,video,511-05 - Heavy Duty Gas Turbines ? Major Components and Support Systems,Yes
+5884,video,507-04 - Generator and Auxiliary Systems Start-up,Yes
+5886,video,507-06 - Generator and Auxiliary Systems Shutdown,Yes
+5885,video,507-05 - Generator and Auxiliary Systems? Normal Operations,Yes
+5882,video,507-02 - Generator and Auxiliary Systems? Flow Paths and Major Components,Yes
+5893,video,511-10 - Fundamentals of Gas Turbine Operation and Routine Maintenance,Yes
+5989,video,565-02 - Distributed Control System Components,Yes
+6001,video,582-01 - Combined Cycle Power Plants,Yes
+6002,video,582-02 - Combined Cycle Power Plant Components,Yes
+5938,video,551-10 - Air Cooled Condensers,Yes
+5892,video,511-07 - Aero-derivative Gas Turbines ? Major Components and Support Systems,Yes
+4974,video,621-07 PLC Network Protocols,Yes
+4970,video,621-02 - Input/Output (I/O) Processing,Yes
+6098,video,"820-04 - Rigging, Part 3",Yes
+6097,video,"820-03 - Rigging, Part 2",Yes
+6096,video,"820-02 - Rigging, Part 1",Yes
+6080,video,725-02 - Testing Principles and Procedures,Yes
+6069,video,711-02 - Operation of a Distillation Column,Yes
+6079,video,725-01 - Sampling Principles and Methods,Yes
+6073,video,719-01 - Safety Alarm Systems and Instrumentation,Yes
+6076,video,"721-02 - Process Utilities Systems, Part 2",Yes
+6075,video,"721-01 - Process Utilities Systems, Part 1",Yes
+6074,video,719-02 - Overpressure Safety Systems,Yes
+6070,video,713-01 - Introduction to Process Separators,Yes
+6071,video,715-01 - Introduction to Process Reactors,Yes
+6072,video,717-01 - Introduction to Naphtha Reforming,Yes
+6068,video,711-01 - Introduction to Distillation,Yes
+5990,video,565-03 - Using Distributed Control System Diagrams,Yes
+5877,video,505-01 - Steam Turbine Design,Yes
+5879,video,505-03 - Steam Turbine Auxiliaries,Yes
+6036,video,589-05 - Solar Energy ? Thermal Applications,Yes
+6035,video,589-03 - Solar Energy - Photovoltaic,Yes
+5953,video,557-06 - Shutdown of the Boiler Water and Steam Systems,Yes
+5991,video,565-04 - Power Plant Unit Control,Yes
+5952,video,557-05 - Normal Operation of the Boiler Water and Steam Systems,Yes
+7255,video,Building Great Sales Relationships,Yes
+7066,video,117-85 Hydrogen Sulfide Awareness (CAD),Yes
+11919,video,Sexual Harassment and Discrimination Prevention for Connecticut Managers,Yes
+11920,video,Sexual Harassment and Discrimination Prevention for Connecticut,Yes
+11972,video,Canada - Hearing Conservation Overview,Yes
+130,video,MSHA - First Aid,Yes
+2024,video,Hazard Communication Overview,Yes
+3611,video,Asbestos Hazard Awareness Overview,Yes
