@@ -20,6 +20,18 @@ final class CldSyncResult
         public ?string $abortReason = null,
     ) {}
 
+    /**
+     * True when the run had nothing to process (no lesson IDs matched),
+     * as opposed to a run that actually attempted work and hit problems.
+     */
+    public function isEmptyRun(): bool
+    {
+        return $this->totalIds === 0
+            && $this->succeeded === 0
+            && $this->failures === []
+            && $this->feedMe === null;
+    }
+
     public function hasIssues(): bool
     {
         if ($this->abortReason !== null) {

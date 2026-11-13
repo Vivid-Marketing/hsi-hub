@@ -33,9 +33,11 @@ class CldSyncNotifier
             return;
         }
 
-        $subject = $result->hasIssues()
-            ? '[Hub] CLD sync completed with issues'
-            : '[Hub] CLD sync completed';
+        $subject = match (true) {
+            $result->isEmptyRun() => '[Hub] CLD sync: nothing to sync',
+            $result->hasIssues() => '[Hub] CLD sync completed with issues',
+            default => '[Hub] CLD sync completed',
+        };
 
         $text = $this->buildTextBody($result);
         $html = '<pre style="font-family:ui-monospace,monospace;font-size:13px;white-space:pre-wrap;">'.e($text).'</pre>';
