@@ -186,6 +186,8 @@ class CldFeedsController extends Controller
      */
     public function backfillCourseLanguages(Request $request, CldApiService $cldApi)
     {
+        $this->guardPasskey($request);
+
         $path = $cldApi->courseLanguagesBackfillExportPath();
 
         if ($request->boolean('refresh') || ! File::exists($path)) {
