@@ -1370,7 +1370,7 @@ class CldApiService
 
     /**
      * Pipe-delimited Craft "Course Languages" slugs for a CLD Locales array (feeds Craft courseLanguageCategories).
-     * Skips codes with no Craft category.
+     * Skips locales marked inactive in CLD (Status 0) and codes with no Craft category.
      */
     public function localesToCraftLanguageSlugs(array $locales): string
     {
@@ -1379,8 +1379,10 @@ class CldApiService
             if (! is_array($locale)) {
                 continue;
             }
-            // Inactive locales (Status 0) are still listed: Content confirmed inactive English on live courses
-            // is a CLD data issue, not a signal to hide the language.
+            // Status 0 = "Is Active: No" in CLD's Locales tab; don't list it on the website.
+            if (isset($locale['Status']) && (int) $locale['Status'] === 0) {
+                continue;
+            }
             $slug = $this->getSlugFromLocalCode((string) ($locale['LocaleCode'] ?? ''));
             if ($slug) {
                 $slugs[] = $slug;
