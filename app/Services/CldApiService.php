@@ -17,6 +17,9 @@ class CldApiService
 
     protected int $tokenTtl;
 
+    /** @var array<string, true> CLD locale codes with no Craft category, already logged this run. */
+    protected array $unmappedLocaleCodesLogged = [];
+
     public function __construct()
     {
         $this->baseUrl = rtrim(config('cld_api.base_url', 'https://cldapi.hsiplatform.com'), '/');
@@ -277,7 +280,7 @@ class CldApiService
         $path = $path ?? $this->emeaCoursesExportPath();
         $directory = dirname($path);
         if (! File::isDirectory($directory)) {
-            File::makeDirectory($directory, 0755, true);
+            File::makeDirectory($directory, 0775, true);
         }
 
         $json = json_encode(
@@ -638,7 +641,7 @@ class CldApiService
         $path = $path ?? $this->longFieldDescriptionBackfillExportPath();
         $directory = dirname($path);
         if (! File::isDirectory($directory)) {
-            File::makeDirectory($directory, 0755, true);
+            File::makeDirectory($directory, 0775, true);
         }
 
         $json = json_encode(
@@ -766,7 +769,7 @@ class CldApiService
         $path = $path ?? $this->courseOutlineBackfillExportPath();
         $directory = dirname($path);
         if (! File::isDirectory($directory)) {
-            File::makeDirectory($directory, 0755, true);
+            File::makeDirectory($directory, 0775, true);
         }
 
         $json = json_encode(
@@ -861,7 +864,7 @@ class CldApiService
         $path = $path ?? $this->courseLanguagesBackfillExportPath();
         $directory = dirname($path);
         if (! File::isDirectory($directory)) {
-            File::makeDirectory($directory, 0755, true);
+            File::makeDirectory($directory, 0775, true);
         }
 
         $json = json_encode(
@@ -975,7 +978,7 @@ class CldApiService
         return $subPath ? $base.'/'.ltrim($subPath, '/') : $base;
     }
 
-    protected function ensureDirectoryExists(string $dirPath, int $permissions = 0755): bool
+    protected function ensureDirectoryExists(string $dirPath, int $permissions = 0775): bool
     {
         if (empty($dirPath)) {
             return false;
@@ -1383,9 +1386,17 @@ class CldApiService
             if (isset($locale['Status']) && (int) $locale['Status'] === 0) {
                 continue;
             }
-            $slug = $this->getSlugFromLocalCode((string) ($locale['LocaleCode'] ?? ''));
+            $code = (string) ($locale['LocaleCode'] ?? '');
+            $slug = $this->getSlugFromLocalCode($code);
             if ($slug) {
                 $slugs[] = $slug;
+            } elseif ($code !== '' && ! isset($this->unmappedLocaleCodesLogged[$code])) {
+                // New CLD language: needs a Craft "Course Languages" category and an entry in getSlugFromLocalCode().
+                $this->unmappedLocaleCodesLogged[$code] = true;
+                Log::warning('CLD locale code has no Craft language mapping; skipped', [
+                    'locale_code' => $code,
+                    'lesson_id' => $locale['LessonID'] ?? null,
+                ]);
             }
         }
 
